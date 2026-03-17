@@ -13,7 +13,7 @@ setup(
     ),
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/your-org/eagf",
+    url="https://github.com/aliakarma/eagf",
     license="MIT",
     packages=find_packages(include=["src", "src.*"]),
     python_requires=">=3.9",

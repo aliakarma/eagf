@@ -7,6 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![arXiv](https://img.shields.io/badge/arXiv-Preprint-red.svg)](#citation)
 [![IEEE](https://img.shields.io/badge/Journal-IEEE%20Submission-blue.svg)](#citation)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/01_eagf_demo.ipynb)
+[![GitHub](https://img.shields.io/badge/GitHub-aliakarma%2Feagf-blue?logo=github)](https://github.com/aliakarma/eagf)
 
 **A Four-Pillar Framework Integrating Transparency, Fairness, Privacy, and Accountability with a Composite Trust Index**
 
@@ -28,9 +30,10 @@
 8. [Reproducibility](#reproducibility)
 9. [Results](#results)
 10. [Paper–Code Mapping](#papercode-mapping)
-11. [Citation](#citation)
-12. [License](#license)
-13. [Acknowledgements](#acknowledgements)
+11. [Interactive Notebooks](#interactive-notebooks)
+12. [Citation](#citation)
+13. [License](#license)
+14. [Acknowledgements](#acknowledgements)
 
 ---
 
@@ -80,22 +83,22 @@ This empirically confirms the Bagdasaryan–Shmatikov privacy–fairness couplin
 │  Stage 1: Ethical Design Requirements                           │
 │  ┌──────────┬──────────┬──────────┬──────────────────────────┐  │
 │  │ Target C │ Target RP│ Target P │ Target A                 │  │
-│  │ ≥ 0.80   │ ≥ 0.95   │ ≥ 0.80   │ ≥ 0.85                   │  │
+│  │ ≥ 0.80   │ ≥ 0.95   │ ≥ 0.80   │ ≥ 0.85                  │  │
 │  └──────────┴──────────┴──────────┴──────────────────────────┘  │
 │                                                                 │
-│  Stage 2-3: Privacy-Preserving Data Preparation + Bias Audit    │
+│  Stage 2-3: Privacy-Preserving Data Preparation + Bias Audit   │
 │                                                                 │
 │  Stage 4: Multi-Objective Constrained Training                  │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │  min L_CE(θ)  s.t.  C̃(θ)≥Ĉ, RP̃(θ)≥R̂P, P̃(θ)≥P̂, Ã(θ)≥Â     │   │
+│  │  min L_CE(θ)  s.t.  C̃(θ)≥Ĉ, RP̃(θ)≥R̂P, P̃(θ)≥P̂, Ã(θ)≥Â  │   │
 │  │                                                          │   │
-│  │  Pareto Grid: λ_RP × λ_C  ∈  [10⁻³, 10⁰]  (5×5)          │   │
+│  │  Pareto Grid: λ_RP × λ_C  ∈  [10⁻³, 10⁰]  (5×5)        │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │  Stage 5: SHAP Explainability (top-k, latency-bounded)          │
 │  Stage 6: Trust Metric Evaluation                               │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │  TI = 0.25·C̃ + 0.25·R̃P + 0.25·P̃ + 0.25·Ã                   │ │
+│  │  TI = 0.25·C̃ + 0.25·R̃P + 0.25·P̃ + 0.25·Ã               │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │  Stage 7: Pareto-Front Selection                                │
 │  Stage 8: Deployment + Governance Hooks                         │
@@ -177,11 +180,11 @@ eagf/
 │   └── run_pareto_search.sh     ← 5×5 Pareto-grid hyperparameter sweep
 │
 ├── notebooks/
-│   ├── 01_data_exploration.ipynb      ← Dataset statistics and demographic analysis
-│   ├── 02_ablation_analysis.ipynb     ← Ablation results visualisation (Table 4)
-│   ├── 03_trust_index_analysis.ipynb  ← TI sensitivity and AHP weight analysis
-│   ├── 04_pareto_front.ipynb          ← Pareto-front visualisation (Section 3.6)
-│   └── 05_reiot_fairness.ipynb        ← Node-class FPRP analysis (Table 6)
+│   ├── 01_eagf_demo.ipynb             ← Full framework demo + Figure 3
+│   ├── 02_statistical_analysis.ipynb  ← z-test, paired t-test, bootstrap CIs
+│   ├── 03_reiot_fairness.ipynb        ← RE-IoT node-class FPRP analysis
+│   ├── 04_pareto_front.ipynb          ← Pareto-front MOO visualisation
+│   └── 05_trust_index_sensitivity.ipynb ← AHP weights, TI sensitivity
 │
 ├── data/
 │   ├── README.md                ← Data access instructions and preprocessing steps
@@ -496,19 +499,46 @@ Expected outputs:
 
 ---
 
+## Interactive Notebooks
+
+<div align="center">
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/01_eagf_demo.ipynb)
+&nbsp;
+[![GitHub](https://img.shields.io/badge/GitHub-aliakarma%2Feagf-blue?logo=github)](https://github.com/aliakarma/eagf)
+
+</div>
+
+Run all five notebooks directly in your browser — no local installation required.
+Each notebook is self-contained and installs its own lightweight dependencies.
+
+| # | Notebook | Content | Open |
+|:---:|---|---|:---:|
+| 1 | `01_eagf_demo.ipynb` | Full framework demo: train M0–M5, ablation table, Figure 3, TI components | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/01_eagf_demo.ipynb) |
+| 2 | `02_statistical_analysis.ipynb` | Two-proportion z-test, paired t-test, bootstrap CIs, significance matrix | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/02_statistical_analysis.ipynb) |
+| 3 | `03_reiot_fairness.ipynb` | RE-IoT node-class FPRP analysis, FPR breakdown, operational cost savings | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/03_reiot_fairness.ipynb) |
+| 4 | `04_pareto_front.ipynb` | 5×5 Pareto-grid MOO, privacy–fairness trade-off scatter, TI heatmap | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/04_pareto_front.ipynb) |
+| 5 | `05_trust_index_sensitivity.ipynb` | AHP weight derivation, sector-specific weights, TI sensitivity curves | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/05_trust_index_sensitivity.ipynb) |
+
+> **Tip:** Click any badge to open the notebook in Google Colab instantly.
+> The first cell installs all required packages automatically.
+
+
+---
+
 ## Citation
 
 If you use EAGF in your research, please cite:
 
 ```bibtex
-@inproceedings{jan2025eagf,
+@article{jan2025eagf,
   author    = {Jan, Salman and Muhammad, Munir Azam and Syed, Toqeer Ali and
                Akarma, Ali and Lee, It Ee and Wali, Qamar and
                Kamal, Shahid and Ali, Jawad},
   title     = {Ethical {AI} Governance for Cybersecurity in Renewable Energy
                {IoT} Systems: A Four-Pillar Framework Integrating Transparency,
                Fairness, Privacy, and Accountability with a Composite Trust Index},
-  journal   = {},
+  journal   = {IEEE Access},
   year      = {2025},
   note      = {Under review},
   doi       = {},
