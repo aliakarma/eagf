@@ -1,0 +1,39 @@
+# ============================================================
+# EAGF Requirements — core dependencies only
+# All packages install from PyPI standard repositories.
+# For GPU/torch support see environment.yml (optional).
+# ============================================================
+
+# Core scientific stack
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+scikit-learn>=1.3.0
+statsmodels>=0.14.0
+
+# Visualisation
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Configuration
+pyyaml>=6.0
+tqdm>=4.66.0
+
+# Optional: deep learning backend (install separately if GPU available)
+# torch>=2.0.0
+# torchvision>=0.15.0
+# opacus>=1.4.0   # DP-SGD with Rényi accounting
+
+# Optional: true SHAP explainability (falls back to surrogate if unavailable)
+# shap>=0.42.0
+
+# Optional: experiment tracking
+# mlflow>=2.7.0
+# tensorboard>=2.13.0
+
+# Optional: dataset download
+# kaggle>=1.5.16
+
+# Development / testing
+# pytest>=7.4.0
+# black>=23.7.0

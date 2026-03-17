@@ -1,0 +1,92 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite both the paper and the software."
+
+title: "EAGF: Ethical AI Governance Framework for Cybersecurity in Renewable Energy IoT Systems"
+version: 1.0.0
+date-released: 2025-01-01
+license: MIT
+repository-code: https://github.com/your-org/eagf
+url: https://github.com/your-org/eagf
+
+abstract: >
+  EAGF is the first framework to formally operationalise all four EU AI Act
+  governance pillars — transparency, fairness, privacy, and accountability —
+  within a single adversarial-aware AI lifecycle for cybersecurity applications,
+  with deep integration into 5G-connected Renewable Energy IoT infrastructure.
+
+authors:
+  - family-names: Jan
+    given-names: Salman
+    affiliation: Arab Open University, Kingdom of Bahrain
+    email: salman.jan@aou.org.bh
+    orcid: https://orcid.org/0000-0000-0000-0000
+
+  - family-names: Muhammad
+    given-names: Munir Azam
+    affiliation: IoT Software & Solutions, Karachi, Pakistan
+
+  - family-names: Syed
+    given-names: Toqeer Ali
+    affiliation: Islamic University of Madinah, Saudi Arabia
+
+  - family-names: Akarma
+    given-names: Ali
+    affiliation: Islamic University of Madinah, Saudi Arabia
+
+  - family-names: Lee
+    given-names: It Ee
+    affiliation: Multimedia University, Malaysia
+    email: ielee@mmu.edu.my
+    orcid: https://orcid.org/0000-0000-0000-0001
+
+  - family-names: Wali
+    given-names: Qamar
+    affiliation: Multimedia University, Malaysia
+
+  - family-names: Kamal
+    given-names: Shahid
+    affiliation: Multimedia University, Malaysia
+
+  - family-names: Ali
+    given-names: Jawad
+    affiliation: York St John University London Campus, United Kingdom
+
+keywords:
+  - Trustworthy AI
+  - Ethical AI Governance
+  - Explainable AI
+  - Fairness
+  - Differential Privacy
+  - Accountability
+  - Cybersecurity
+  - Renewable Energy IoT
+  - 5G
+  - Trust Index
+  - SCADA
+
+references:
+  - type: article
+    title: >
+      Ethical AI Governance for Cybersecurity in Renewable Energy IoT Systems:
+      A Four-Pillar Framework Integrating Transparency, Fairness, Privacy,
+      and Accountability with a Composite Trust Index
+    authors:
+      - family-names: Jan
+        given-names: Salman
+      - family-names: Muhammad
+        given-names: Munir Azam
+      - family-names: Syed
+        given-names: Toqeer Ali
+      - family-names: Akarma
+        given-names: Ali
+      - family-names: Lee
+        given-names: It Ee
+      - family-names: Wali
+        given-names: Qamar
+      - family-names: Kamal
+        given-names: Shahid
+      - family-names: Ali
+        given-names: Jawad
+    year: 2025
+    journal: "Under review"
+    doi: ""
