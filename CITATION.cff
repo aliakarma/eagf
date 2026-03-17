@@ -5,8 +5,8 @@ title: "EAGF: Ethical AI Governance Framework for Cybersecurity in Renewable Ene
 version: 1.0.0
 date-released: 2025-01-01
 license: MIT
-repository-code: https://github.com/your-org/eagf
-url: https://github.com/your-org/eagf
+repository-code: https://github.com/aliakarma/eagf
+url: https://github.com/aliakarma/eagf
 
 abstract: >
   EAGF is the first framework to formally operationalise all four EU AI Act

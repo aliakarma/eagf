@@ -5,7 +5,7 @@ Thank you for your interest in contributing to the Ethical AI Governance Framewo
 ## Getting Started
 
 ```bash
-git clone https://github.com/your-org/eagf.git
+git clone https://github.com/aliakarma/eagf.git
 cd eagf
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
