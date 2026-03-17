@@ -1,0 +1,97 @@
+# ============================================================
+# configs/reiot_default.yaml
+# EAGF RE-IoT Anomaly Detection Case Study Configuration
+# Paper: Section 5.2 (Case Study 2 Setup)
+# ============================================================
+
+# --- Dataset (synthetic RE-IoT telemetry) --------------------
+data:
+  name: reiot
+  root: data/reiot/
+  nodes_total: 120
+  nodes_urban: 40
+  nodes_periurban: 40
+  nodes_rural: 40
+  frequency_hz: 1.0                     # telemetry sampling rate
+  duration_seconds: 86400               # 24 hours of telemetry
+  attack_ratio: 0.05                    # 5% overall attack rate
+  attacks: [fdia, command_injection, dos]
+  node_split: [0.80, 0.20]              # train / test node-level split
+  features: [voltage, current, frequency_deviation, soc, inverter_state]
+  sequence_length: 60                   # 60-second windows
+  stride: 30
+
+  # Node load variation parameters (from Liang et al., 2017)
+  load_variation:
+    urban: 0.02       # ±2%
+    periurban: 0.08   # ±8%
+    rural: 0.22       # ±22%
+
+# --- Model architecture ---------------------------------------
+model:
+  architecture: cnn_lstm
+  cnn_filters: [32, 64]
+  cnn_kernel_size: 3
+  lstm_hidden_size: 128
+  lstm_layers: 2
+  dropout: 0.2
+  num_classes: 2                        # binary: normal / anomaly
+
+# --- Training -------------------------------------------------
+training:
+  epochs: 30
+  batch_size: 128
+  optimizer: adamw
+  lr: 5.0e-4
+  weight_decay: 1.0e-3
+  seed: 42
+
+# --- Governance (adapted for RE-IoT context) ─────────────────
+governance:
+  dp_enabled: true
+  dp_epsilon: 3.0
+  dp_delta: 1.0e-5
+  dp_max_grad_norm: 1.0
+
+  # Fairness: FPRP-based penalty for RE-IoT node-class fairness
+  lambda_fprp: 0.15
+  lambda_c: 0.05
+
+  shap_explainer: kernel               # kernel SHAP for tabular data
+  shap_top_k: 5
+  shap_tau_pct: 0.01
+
+# --- Governance: Stage-1 Thresholds --------------------------
+thresholds:
+  min_clarity: 0.75
+  min_fprp: 0.85                        # node-class FPRP target
+  min_privacy: 0.80
+  min_accountability: 0.85
+
+# --- Fairness criterion selection ----------------------------
+fairness:
+  criterion: fprp                       # node-class FPRP for RE-IoT
+  protected_groups: [urban, periurban, rural]
+  reference_group: urban
+
+# --- Evaluation ----------------------------------------------
+evaluation:
+  bootstrap_n: 500
+  mia_shadow_models: 2
+  mia_epochs: 10
+  report_per_node_class: true
+
+# --- Accountability (IEC 62351-compatible) -------------------
+accountability:
+  audit_log_path: results/reiot/audit_log.jsonl
+  sign_key_path: configs/audit_key.pem
+  compliance_checklist: configs/compliance_checklist_ics.yaml
+  ics_standard: iec62351
+  trace_window_days: 90
+
+# --- Logging & output ----------------------------------------
+output:
+  checkpoint_dir: results/reiot/
+  mlflow_tracking_uri: results/reiot/mlruns/
+  log_interval_steps: 20
+  save_best_metric: trust_index

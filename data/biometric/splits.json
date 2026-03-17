@@ -1,0 +1,27 @@
+{
+  "seed": 42,
+  "task": "binary_verification",
+  "n_train": 1120,
+  "n_val": 240,
+  "n_test": 240,
+  "positive_rate": 0.5,
+  "groups": [
+    "female_dark",
+    "female_light",
+    "male_dark",
+    "male_light"
+  ],
+  "info": "Binary facial-verification dataset (enrolled=1 / not=0). 4 demographic groups with intentional noise disparity mirroring Buolamwini & Gebru (2018). Regenerate: python -m src.utils.data_loader --dataset demo --output data/biometric/",
+  "first_10_train_indices": [
+    441,
+    984,
+    671,
+    707,
+    1127,
+    1459,
+    807,
+    339,
+    866,
+    1012
+  ]
+}

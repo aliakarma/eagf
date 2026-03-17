@@ -1,0 +1,64 @@
+# EAGF Regulatory Compliance Checklist (Biometric)
+# Each control scores 1 if satisfied, 0 if not.
+# alpha_comply = satisfied / total
+controls:
+  - id: eu_ai_act_transparency
+    description: "Model provides per-decision explanations"
+    satisfied: true
+  - id: eu_ai_act_human_oversight
+    description: "Human override mechanism exists"
+    satisfied: true
+  - id: eu_ai_act_risk_management
+    description: "Risk management system documented"
+    satisfied: true
+  - id: eu_ai_act_technical_docs
+    description: "Technical documentation maintained"
+    satisfied: true
+  - id: gdpr_art22_explanation
+    description: "Meaningful explanation for automated decisions"
+    satisfied: true
+  - id: gdpr_data_minimisation
+    description: "Only necessary data processed"
+    satisfied: true
+  - id: gdpr_privacy_by_design
+    description: "DP integrated at training time"
+    satisfied: true
+  - id: gdpr_retention_limits
+    description: "Data retention within defined limits"
+    satisfied: true
+  - id: nist_govern
+    description: "AI governance policies established"
+    satisfied: true
+  - id: nist_map
+    description: "AI risks mapped and categorised"
+    satisfied: true
+  - id: nist_measure
+    description: "Quantitative risk metrics computed"
+    satisfied: true
+  - id: nist_manage
+    description: "Risks actively managed and mitigated"
+    satisfied: true
+  - id: nis2_incident_reporting
+    description: "Incident reporting process defined"
+    satisfied: true
+  - id: nis2_security_measures
+    description: "Cybersecurity risk management in place"
+    satisfied: true
+  - id: audit_log_completeness
+    description: "100% of decisions cryptographically logged"
+    satisfied: true
+  - id: audit_lineage
+    description: "Full data lineage recoverable"
+    satisfied: true
+  - id: bias_assessment
+    description: "Demographic bias assessed before deployment"
+    satisfied: true
+  - id: fairness_monitoring
+    description: "Ongoing fairness monitoring enabled"
+    satisfied: true
+  - id: mia_stress_test
+    description: "Membership inference attack evaluated"
+    satisfied: true
+  - id: model_version_registry
+    description: "Model version and hash recorded"
+    satisfied: true
