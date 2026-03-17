@@ -221,7 +221,7 @@ eagf/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/eagf.git
+git clone https://github.com/aliakarma/eagf.git
 cd eagf
 
 # 2. Create a virtual environment
