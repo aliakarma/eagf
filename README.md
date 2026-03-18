@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![arXiv](https://img.shields.io/badge/arXiv-Preprint-red.svg)](#citation)
 [![IEEE](https://img.shields.io/badge/Journal-IEEE%20Submission-blue.svg)](#citation)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/01_eagf_demo.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](#interactive-notebooks)
 
 
 **A Four-Pillar Framework Integrating Transparency, Fairness, Privacy, and Accountability with a Composite Trust Index**
