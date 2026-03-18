@@ -2,11 +2,13 @@ cff-version: 1.2.0
 message: "If you use this software, please cite both the paper and the software."
 
 title: "EAGF: Ethical AI Governance Framework for Cybersecurity in Renewable Energy IoT Systems"
-version: 1.0.0
-date-released: 2025-01-01
+type: software
+version: "1.0.0"
+date-released: 2026-03-18
 license: MIT
-repository-code: https://github.com/aliakarma/eagf
-url: https://github.com/aliakarma/eagf
+
+repository-code: "https://github.com/aliakarma/eagf"
+url: "https://github.com/aliakarma/eagf"
 
 abstract: >
   EAGF is the first framework to formally operationalise all four EU AI Act
@@ -17,39 +19,39 @@ abstract: >
 authors:
   - family-names: Jan
     given-names: Salman
-    affiliation: Arab Open University, Kingdom of Bahrain
-    email: salman.jan@aou.org.bh
-    orcid: https://orcid.org/0000-0000-0000-0000
+    affiliation: "Arab Open University, Kingdom of Bahrain"
+    email: "salman.jan@aou.org.bh"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
 
   - family-names: Muhammad
     given-names: Munir Azam
-    affiliation: IoT Software & Solutions, Karachi, Pakistan
+    affiliation: "IoT Software & Solutions, Karachi, Pakistan"
 
   - family-names: Syed
     given-names: Toqeer Ali
-    affiliation: Islamic University of Madinah, Saudi Arabia
+    affiliation: "Islamic University of Madinah, Saudi Arabia"
 
   - family-names: Akarma
     given-names: Ali
-    affiliation: Islamic University of Madinah, Saudi Arabia
+    affiliation: "Islamic University of Madinah, Saudi Arabia"
 
   - family-names: Lee
     given-names: It Ee
-    affiliation: Multimedia University, Malaysia
-    email: ielee@mmu.edu.my
-    orcid: https://orcid.org/0000-0000-0000-0001
+    affiliation: "Multimedia University, Malaysia"
+    email: "ielee@mmu.edu.my"
+    orcid: "https://orcid.org/0000-0000-0000-0001"
 
   - family-names: Wali
     given-names: Qamar
-    affiliation: Multimedia University, Malaysia
+    affiliation: "Multimedia University, Malaysia"
 
   - family-names: Kamal
     given-names: Shahid
-    affiliation: Multimedia University, Malaysia
+    affiliation: "Multimedia University, Malaysia"
 
   - family-names: Ali
     given-names: Jawad
-    affiliation: York St John University London Campus, United Kingdom
+    affiliation: "York St John University London Campus, United Kingdom"
 
 keywords:
   - Trustworthy AI
@@ -87,6 +89,5 @@ references:
         given-names: Shahid
       - family-names: Ali
         given-names: Jawad
-    year: 2025
+    year: 2026
     journal: "Under review"
-    doi: ""
