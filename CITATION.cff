@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+title: "EAGF"
+message: "Please cite this software."
+type: software
+authors:
+  - family-names: Akarma
+    given-names: Ali
+version: "1.0.0"
+date-released: 2026-03-18
