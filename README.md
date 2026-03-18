@@ -12,7 +12,8 @@
 
 **A Four-Pillar Framework Integrating Transparency, Fairness, Privacy, and Accountability with a Composite Trust Index**
 
-[Paper](#citation) · [Installation](#installation) · [Quick Start](#quick-start) · [Reproducibility](#reproducibility) · [Results](#results) · [Citation](#citation)
+[Paper](#citation) · [Installation](#installation) · [Quick Start](#quick-start) · [Reproducibility](#reproducibility) · [Results](#results)
+
 
 </div>
 
@@ -31,9 +32,8 @@
 9. [Results](#results)
 10. [Paper–Code Mapping](#papercode-mapping)
 11. [Interactive Notebooks](#interactive-notebooks)
-12. [Citation](#citation)
-13. [License](#license)
-14. [Acknowledgements](#acknowledgements)
+12. [License](#license)
+13. [Acknowledgements](#acknowledgements)
 
 ---
 
