@@ -516,27 +516,6 @@ Each notebook is self-contained and installs its own lightweight dependencies.
 > The first cell installs all required packages automatically.
 
 
----
-
-## Citation
-
-If you use EAGF in your research, please cite:
-
-```bibtex
-@article{jan2025eagf,
-  author    = {Jan, Salman and Muhammad, Munir Azam and Syed, Toqeer Ali and
-               Akarma, Ali and Lee, It Ee and Wali, Qamar and
-               Kamal, Shahid and Ali, Jawad},
-  title     = {Ethical {AI} Governance for Cybersecurity in Renewable Energy
-               {IoT} Systems: A Four-Pillar Framework Integrating Transparency,
-               Fairness, Privacy, and Accountability with a Composite Trust Index},
-  journal   = {},
-  year      = {2026},
-  note      = {Under review},
-  doi       = {},
-  url       = {}
-}
-```
 
 ---
 
