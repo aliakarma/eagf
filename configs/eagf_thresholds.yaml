@@ -1,0 +1,37 @@
+# ============================================================
+# configs/eagf_thresholds.yaml
+# Stage-1 Governance Targets for EAGF
+# These values define the minimum acceptable performance
+# for each governance pillar before deployment approval.
+# Paper: Section 3.1 (Framework Lifecycle, Stage 1)
+# ============================================================
+
+# --- Biometric deployment thresholds ─────────────────────
+biometric:
+  min_clarity: 0.80              # C̃ ≥ 0.80 (EU AI Act transparency)
+  min_recall_parity: 0.95        # RP̃ ≥ 0.95 (< 5% demographic recall gap)
+  min_privacy: 0.80              # P̃ ≥ 0.80 (ε ≤ 3 + MIA near-random)
+  min_accountability: 0.85       # Ã ≥ 0.85 (NIS2 + GDPR compliance)
+  min_trust_index: 0.85          # TI ≥ 0.85 (deployment gate)
+
+# --- RE-IoT deployment thresholds ────────────────────────
+reiot:
+  min_clarity: 0.75              # Slightly relaxed: SCADA operator context
+  min_fprp: 0.85                 # FPRP̃ ≥ 0.85 (node-class fairness)
+  min_privacy: 0.80              # P̃ ≥ 0.80 (GDPR smart-meter data)
+  min_accountability: 0.85       # Ã ≥ 0.85 (IEC 62351 + NIS2)
+  min_trust_index: 0.82          # TI ≥ 0.82 (deployment gate)
+
+# --- Regulatory certification threshold ──────────────────
+certification:
+  # A TI ≥ 0.90 provides quantitative evidence supporting
+  # EU AI Act conformity assessment for high-risk AI systems.
+  eu_ai_act_high_risk: 0.90
+
+# --- Alert thresholds (post-deployment monitoring) ───────
+alerts:
+  # Triggers a governance review and potential model rollback
+  clarity_degradation_threshold: 0.05    # Δ > 5% from baseline C
+  fairness_degradation_threshold: 0.03   # Δ > 3 pp from baseline RP/FPRP
+  privacy_degradation_threshold: 0.05    # Δ > 5% from baseline P
+  accountability_degradation_threshold: 0.02  # Any audit completeness drop

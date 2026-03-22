@@ -1,0 +1,86 @@
+# ============================================================
+# configs/biometric_default.yaml
+# EAGF Biometric Case Study Default Configuration
+# Paper: Section 5.1 (Case Study 1 Setup)
+# ============================================================
+
+# --- Dataset --------------------------------------------------
+data:
+  name: efr
+  root: data/biometric/efr_processed/
+  splits_file: data/biometric/splits.json
+  split_ratios: [0.70, 0.15, 0.15]      # train / val / test
+  image_size: [224, 224]
+  protected_groups: [gender, skin_tone]  # demographic strata
+  num_workers: 4
+
+# --- Model architecture ---------------------------------------
+model:
+  architecture: resnet50
+  pretrained: true                       # ImageNet pretrained weights
+  num_classes: null                      # set automatically from dataset
+
+# --- Training -------------------------------------------------
+training:
+  epochs: 50
+  batch_size: 64
+  optimizer: adamw
+  lr: 1.0e-4
+  weight_decay: 1.0e-2
+  lr_scheduler: cosine
+  warmup_epochs: 5
+  seed: 42                               # override with --seed flag
+
+# --- Governance: Differential Privacy (Pillar 3) -------------
+governance:
+  dp_enabled: true
+  dp_epsilon: 3.0                        # target ε (Rényi accountant)
+  dp_delta: 1.0e-5                       # target δ
+  dp_max_grad_norm: 1.0                  # gradient clipping norm
+  dp_noise_multiplier: null              # auto-computed from ε, δ, epochs
+
+  # Lagrangian fairness penalty (Pillar 2)
+  lambda_rp: 0.1                         # deployed model value
+  lambda_c: 0.05                         # deployed model value
+
+  # SHAP explainability (Pillar 1)
+  shap_explainer: deep                   # "deep", "gradient", or "kernel"
+  shap_top_k: 5                          # max features per explanation
+  shap_tau_pct: 0.01                     # attribution threshold (1% of φ̄)
+  shap_sample_size: 200                  # explanations computed per epoch
+
+  # Pareto-front search
+  pareto_grid_size: 5                    # NxN grid: 5×5 = 25 runs
+  pareto_lambda_range: [1.0e-3, 1.0e0]
+
+# --- Governance: Stage-1 Thresholds --------------------------
+thresholds:
+  min_clarity: 0.80
+  min_recall_parity: 0.95
+  min_privacy: 0.80
+  min_accountability: 0.85
+
+# --- Fairness criterion selection ----------------------------
+fairness:
+  criterion: recall_parity              # "recall_parity" or "fprp"
+  reference_group: male_light           # demographic reference group
+
+# --- Evaluation ----------------------------------------------
+evaluation:
+  bootstrap_n: 1000                     # bootstrap resamples for CIs
+  mia_shadow_models: 4                  # shadow models for MIA attack
+  mia_epochs: 20
+
+# --- Accountability ------------------------------------------
+accountability:
+  audit_log_path: results/biometric/audit_log.jsonl
+  sign_key_path: configs/audit_key.pem  # RSA private key for signing
+  compliance_checklist: configs/compliance_checklist.yaml
+  trace_window_days: 90
+
+# --- Logging & output ----------------------------------------
+output:
+  checkpoint_dir: results/biometric/
+  mlflow_tracking_uri: results/biometric/mlruns/
+  log_interval_steps: 50
+  save_best_metric: trust_index
