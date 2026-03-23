@@ -83,22 +83,22 @@ This empirically confirms the Bagdasaryan–Shmatikov privacy–fairness couplin
 │  Stage 1: Ethical Design Requirements                           │
 │  ┌──────────┬──────────┬──────────┬──────────────────────────┐  │
 │  │ Target C │ Target RP│ Target P │ Target A                 │  │
-│  │ ≥ 0.80   │ ≥ 0.95   │ ≥ 0.80   │ ≥ 0.85                  │  │
+│  │ ≥ 0.80   │ ≥ 0.95   │ ≥ 0.80   │ ≥ 0.85                   │  │
 │  └──────────┴──────────┴──────────┴──────────────────────────┘  │
 │                                                                 │
-│  Stage 2-3: Privacy-Preserving Data Preparation + Bias Audit   │
+│  Stage 2-3: Privacy-Preserving Data Preparation + Bias Audit    │
 │                                                                 │
 │  Stage 4: Multi-Objective Constrained Training                  │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │  min L_CE(θ)  s.t.  C̃(θ)≥Ĉ, RP̃(θ)≥R̂P, P̃(θ)≥P̂, Ã(θ)≥Â  │   │
+│  │  min L_CE(θ)  s.t.  C̃(θ)≥Ĉ, RP̃(θ)≥R̂P, P̃(θ)≥P̂, Ã(θ)≥Â     │   │
 │  │                                                          │   │
-│  │  Pareto Grid: λ_RP × λ_C  ∈  [10⁻³, 10⁰]  (5×5)        │   │
+│  │  Pareto Grid: λ_RP × λ_C  ∈  [10⁻³, 10⁰]  (5×5)          │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │  Stage 5: SHAP Explainability (top-k, latency-bounded)          │
 │  Stage 6: Trust Metric Evaluation                               │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │  TI = 0.25·C̃ + 0.25·R̃P + 0.25·P̃ + 0.25·Ã               │ │
+│  │  TI = 0.25·C̃ + 0.25·R̃P + 0.25·P̃ + 0.25·Ã                   │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │  Stage 7: Pareto-Front Selection                                │
 │  Stage 8: Deployment + Governance Hooks                         │
@@ -538,8 +538,8 @@ If you use EAGF in your research, please cite:
   title     = {Ethical {AI} Governance for Cybersecurity in Renewable Energy
                {IoT} Systems: A Four-Pillar Framework Integrating Transparency,
                Fairness, Privacy, and Accountability with a Composite Trust Index},
-  journal   = {IEEE Access},
-  year      = {2025},
+  journal   = {},
+  year      = {2026},
   note      = {Under review},
   doi       = {},
   url       = {}
