@@ -8,13 +8,13 @@ regulatory auditors in assessing EAGF-governed systems.
 
 ## Summary Table
 
-| Regulation | Requirement | EAGF Component | Evidence (Paper Results) |
+| Regulation | Requirement | EAGF Component | Evidence |
 |---|---|---|---|
-| EU AI Act (High-Risk) | Transparency obligation; human oversight | Clarity (C); α_trace; A | C = 0.88; A = 0.89 |
-| GDPR Art. 22 | Meaningful explanation of automated decisions | SHAP top-5 per decision; C metric | C = 0.88 delivers feature-level attribution |
-| NIST AI RMF | Govern, Map, Measure, Manage lifecycle | Full EAGF 9-stage lifecycle; TI as KPI | TI = 0.918 (biometric); 0.894 (RE-IoT) |
-| NIS2 Directive | Incident reporting; network security | α_comply; IEC 62351 audit log | 100% incident logging in RE-IoT study |
-| IEC 62351 | Authenticated command logging; ICS security | α_audit; SHA-256 signed records | α_audit = 1.0 in RE-IoT study |
+| EU AI Act (High-Risk) | Transparency obligation; human oversight | Clarity (C); α_trace; A | Runtime metric reports and audit artifacts |
+| GDPR Art. 22 | Meaningful explanation of automated decisions | SHAP/top-k or surrogate clarity metric | Reproducible explanation outputs and C metric |
+| NIST AI RMF | Govern, Map, Measure, Manage lifecycle | Full EAGF 9-stage lifecycle; TI as KPI | Experiment logs and TI summaries |
+| NIS2 Directive | Incident reporting; network security | α_comply; IEC 62351 audit log | Checklist outputs and audit logs |
+| IEC 62351 | Authenticated command logging; ICS security | α_audit; SHA-256 records | Log completeness and traceability metrics |
 
 ---
 
@@ -35,8 +35,8 @@ management and operation of critical infrastructure).
 | Record-keeping | Art. 12 | α_audit: cryptographically signed log entries |
 | Post-market monitoring | Art. 72 | Continuous TI monitoring; metric degradation alerts |
 
-**Compliance evidence:** A TI ≥ 0.90 combined with α_comply ≥ 0.85 provides
-quantitative evidence supporting EU AI Act conformity assessment for high-risk AI.
+**Compliance evidence:** Use generated TI/C/A metrics and checklist outputs from
+the current run rather than fixed thresholds claimed without regeneration.
 
 ---
 
@@ -113,10 +113,6 @@ The α_comply sub-score of the Accountability metric is computed as follows:
 2. For each binary control in the checklist, score 1 if satisfied, 0 if not.
 3. α_comply = (satisfied controls) / (total controls)
 
-In the RE-IoT case study, the checklist covers 42 binary controls across
-EU AI Act, GDPR, NIST CSF PR.DS, NIS2, and IEC 62351. The EAGF model satisfies
-37 of 42 controls, yielding α_comply = 0.881.
-
-The five unsatisfied controls require physical infrastructure changes outside
-the scope of the AI governance framework (e.g., hardware-level key management
-for IEC 62351 Part 8 RBAC), which are flagged for the operator's action plan.
+Checklist totals and satisfaction rates depend on the loaded checklist files
+and are computed at runtime. Generated reports should be used as the source of
+truth for α_comply and related compliance evidence.

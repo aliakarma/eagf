@@ -31,9 +31,3 @@ def compute_privacy(epsilon_eff: float = 3.0, mia_auc: float = 0.52,
             "empirical_component": (1.0 - alpha) * (1.0 - mia_auc)}
 
 
-def simulate_dp_training(base_accuracy: float, epsilon: float) -> float:
-    """Estimate accuracy after DP-SGD noise injection.
-    Accuracy degradation ~ 1-4% at epsilon=3 (Abadi et al. 2016).
-    """
-    degradation = 0.025 * (3.0 / max(epsilon, 0.1)) ** 0.5
-    return float(np.clip(base_accuracy - degradation, 0.0, 1.0))

@@ -46,9 +46,9 @@ This repository provides the complete implementation of EAGF as presented in the
 > **"Ethical AI Governance for Cybersecurity in Renewable Energy IoT Systems: A Four-Pillar Framework Integrating Transparency, Fairness, Privacy, and Accountability with a Composite Trust Index"**
 > Salman Jan, Munir Azam Muhammad, Toqeer Ali Syed, Ali Akarma, It Ee Lee, Qamar Wali, Shahid Kamal, Jawad Ali.
 
-EAGF has been validated on two complementary domains:
-- **Biometric Security:** Facial recognition with demographic fairness (10,000-image dataset, 6-variant ablation study)
-- **Renewable Energy IoT:** 5G solar-microgrid anomaly detection across heterogeneous node classes (FDIA, command-injection, DoS attacks)
+EAGF currently includes reproducible experiments on:
+- **Tabular fairness/privacy benchmarking:** synthetic biometric-style tabular data and optional UCI Adult support
+- **Renewable Energy IoT:** synthetic 5G solar-microgrid anomaly detection across heterogeneous node classes (FDIA, command-injection, DoS attacks)
 
 ---
 
@@ -63,14 +63,7 @@ EAGF has been validated on two complementary domains:
 
 ### Why Joint Governance Matters
 
-Our ablation study proves that **no single-pillar model achieves TI > 0.77**:
-
-| Model | Privacy-only degrades Fairness | Joint solves both |
-|---|:---:|:---:|
-| DP-SGD alone (M3) | RP drops 0.970 → 0.961 ✗ | — |
-| EAGF full (M5) | RP = 0.990 ✓ | P = 0.90 ✓ |
-
-This empirically confirms the Bagdasaryan–Shmatikov privacy–fairness coupling and quantifies the necessity of joint optimisation.
+The ablation scripts and notebooks compute metrics directly from model outputs and artifacts (no hardcoded boosts). Results vary with data, seeds, and configuration; use the provided pipeline to regenerate all tables and figures.
 
 ---
 
@@ -148,10 +141,9 @@ eagf/
 │   │
 │   ├── training/
 │   │   ├── __init__.py
-│   │   ├── dp_trainer.py        ← DP-SGD training loop with Rényi accounting
-│   │   ├── fairness_loss.py     ← Recall-parity Lagrangian penalty term
+│   │   ├── fairness_loss.py     ← Recall-parity and clarity penalties
 │   │   ├── pareto_trainer.py    ← Pareto-front exploration (5×5 λ grid)
-│   │   └── eagf_trainer.py      ← Main EAGF multi-objective training procedure
+│   │   └── eagf_trainer.py      ← Main PyTorch + Opacus multi-objective trainer
 │   │
 │   ├── evaluation/
 │   │   ├── __init__.py
@@ -337,8 +329,8 @@ All experiment parameters are controlled via YAML config files in `configs/`. Ke
 ```yaml
 # configs/biometric_default.yaml (excerpt)
 model:
-  architecture: resnet50
-  pretrained: true
+  architecture: tabular_mlp
+  pretrained: false
 
 training:
   epochs: 50
@@ -370,7 +362,7 @@ fairness:
 # M0: Baseline (no governance)
 python -m src.training.eagf_trainer --model baseline --config configs/biometric_default.yaml
 
-# M1: Transparency only (post-hoc SHAP, no training changes)
+# M1: Transparency only (clarity penalty enabled)
 python -m src.training.eagf_trainer --model transparency --config configs/biometric_default.yaml
 
 # M2: Fairness only (recall-parity regularisation)
@@ -442,37 +434,16 @@ Expected outputs:
 
 | Script output | Paper location |
 |---|---|
-| `results/biometric/ablation_summary.csv` | Table 4 (Ablation Study) |
-| `results/biometric/main_results.csv` | Table 5 (Biometric Main Results) |
-| `results/reiot/node_class_results.csv` | Table 6 (RE-IoT Results) |
-| `figures/figure3.png` | Figure 3 (Bar Chart) |
+| `results/biometric/ablation_summary.csv` | Ablation summary (computed) |
+| `results/biometric/main_results.csv` | Main baseline vs EAGF results |
+| `results/reiot/node_class_results.csv` | RE-IoT node-class results |
+| `figures/figure3.png` | Ablation bar chart |
 
 ---
 
 ## Results
 
-### Biometric Case Study (Table 4 — Ablation)
-
-| Model | Accuracy | RP | C | P | A | **TI** |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| M0: Baseline | **98.5%** | 0.970 | 0.55 | 0.50 | 0.52 | 0.635 |
-| M1: +Transparency | 98.3% | 0.970 | **0.88** | 0.50 | 0.52 | 0.718 |
-| M2: +Fairness | 97.8% | **0.989** | 0.55 | 0.50 | 0.52 | 0.660 |
-| M3: +Privacy | 97.1% | 0.961 ↓ | 0.55 | **0.90** | 0.52 | 0.733 |
-| M4: +Accountability | 98.5% | 0.970 | 0.55 | 0.50 | **0.89** | 0.728 |
-| **M5: EAGF (Full)** | 97.0% | **0.990** | **0.88** | **0.90** | **0.89** | **0.918** |
-
-> ↓ M3 (privacy-only) **degrades** recall parity by 0.9 pp — confirming the Bagdasaryan–Shmatikov coupling.
-> No single-pillar model achieves TI > 0.77. Joint governance is necessary.
-
-### RE-IoT Case Study (Table 6)
-
-| Model | Urban FPR | Peri-urban FPR | Rural FPR | Overall FPR | FPRP (R/U) | TI |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Baseline (M0) | 3.1% | 5.8% | 9.4% | 6.1% | 0.62 | 0.612 |
-| **EAGF (M5)** | 3.3% | 3.9% | 3.7% | **3.6%** | **0.91** | **0.894** |
-
-> EAGF reduces rural-node false-positive disparity by **29 pp**, eliminating the systematic penalty for rural energy users.
+All reported metrics are generated at runtime from actual model outputs. To reproduce results, run the pipeline and inspect generated CSV/JSON artifacts in `results/`.
 
 ---
 

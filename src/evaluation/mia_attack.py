@@ -8,52 +8,53 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 
 
-def run_shadow_model_attack(model, X, y, n_shadow_models=2,
-                             shadow_epochs=None, device="cpu", seed=42):
-    """Shadow-model MIA: estimate membership inference AUC.
+def _target_confidence(model, X):
+    """Return target-model confidence vectors used by the attack model."""
+    if hasattr(model, "predict_proba"):
+        return model.predict_proba(X)
+
+    y_pred = model.predict(X)
+    classes = np.unique(y_pred)
+    n_classes = int(classes.max()) + 1 if len(classes) > 0 else 2
+    probs = np.zeros((len(y_pred), max(n_classes, 2)), dtype=float)
+    probs[np.arange(len(y_pred)), y_pred.astype(int)] = 1.0
+    return probs
+
+
+def run_shadow_model_attack(model, X_train, y_train, X_test=None, y_test=None,
+                             n_shadow_models=2, shadow_epochs=None, device="cpu", seed=42):
+    """Membership inference attack against target model outputs.
     
     MIA AUC ≈ 0.50 -> random -> strong privacy.
     MIA AUC ≈ 1.00 -> perfect attack -> weak privacy.
     
     Returns: dict with 'mia_auc', 'mia_accuracy'.
     """
-    rng = np.random.RandomState(seed)
-    n = len(X)
+    if X_test is None or y_test is None:
+        idx = np.arange(len(X_train))
+        tr_idx, te_idx = train_test_split(
+            idx,
+            test_size=0.5,
+            random_state=seed,
+            stratify=y_train,
+        )
+        X_member = X_train[tr_idx]
+        X_non_member = X_train[te_idx]
+    else:
+        X_member = X_train
+        X_non_member = X_test
 
-    # Collect (prediction_confidence_vector, member_label) features
-    attack_X, attack_y = [], []
+    member_conf = _target_confidence(model, X_member)
+    non_member_conf = _target_confidence(model, X_non_member)
 
-    for shadow_idx in range(n_shadow_models):
-        # Shadow model trained on random half of data
-        idx_all = rng.permutation(n)
-        half    = n // 2
-        train_idx = idx_all[:half]
-        test_idx  = idx_all[half:]
+    attack_X = np.vstack([member_conf, non_member_conf])
+    attack_y = np.concatenate([
+        np.ones(len(member_conf), dtype=int),
+        np.zeros(len(non_member_conf), dtype=int),
+    ])
 
-        try:
-            shadow = LogisticRegression(max_iter=200, random_state=seed + shadow_idx,
-                                        C=0.5, solver="lbfgs", multi_class="auto")
-            shadow.fit(X[train_idx], y[train_idx])
-
-            # Members: model trained on them (should have higher confidence)
-            for idx in train_idx[:min(50, len(train_idx))]:
-                proba = shadow.predict_proba(X[[idx]])[0]
-                attack_X.append(proba)
-                attack_y.append(1)  # member
-
-            # Non-members
-            for idx in test_idx[:min(50, len(test_idx))]:
-                proba = shadow.predict_proba(X[[idx]])[0]
-                attack_X.append(proba)
-                attack_y.append(0)  # non-member
-        except Exception:
-            continue
-
-    if len(attack_X) < 10:
-        return {"mia_auc": 0.55, "mia_accuracy": 0.55}
-
-    attack_X = np.array(attack_X)
-    attack_y = np.array(attack_y)
+    if len(attack_X) < 10 or len(np.unique(attack_y)) < 2:
+        return {"mia_auc": 0.5, "mia_accuracy": 0.5}
 
     # Train attack classifier
     try:
@@ -67,7 +68,7 @@ def run_shadow_model_attack(model, X, y, n_shadow_models=2,
         mia_auc = float(roc_auc_score(y_atk_te, atk_proba))
         mia_acc = float(np.mean(atk_pred == y_atk_te))
     except Exception:
-        mia_auc = 0.55
-        mia_acc = 0.55
+        mia_auc = 0.5
+        mia_acc = 0.5
 
     return {"mia_auc": mia_auc, "mia_accuracy": mia_acc}

@@ -1,31 +1,28 @@
 #!/usr/bin/env python3
 """
-run_eagf.py — EAGF One-Command Full Experiment Pipeline
+run_eagf.py — EAGF One-Command Q1 Benchmark Pipeline
 
-Runs the complete EAGF experiment: ablation study, RE-IoT case study,
-statistical tests, figure generation, and summary report.
+Runs the full Q1-style evaluation suite:
+1) Multi-seed baselines + ablations with confidence intervals
+2) Pareto lambda sweep and trade-off plots
+3) Differential privacy trade-off sweep
+4) Clarity validation against SHAP concentration
+5) Artifact manifest for reproducibility
 
 Usage:
-    # Full run (uses synthetic demo data — no downloads needed)
+    # Full run (default 10 seeds)
     python run_eagf.py
 
-    # Fast demo (1 seed, fewer epochs — runs in ~2 minutes)
+    # Fast smoke run (1 seed)
     python run_eagf.py --fast
 
-    # Full paper results (3 seeds, 50 epochs — runs in ~20 minutes)
-    python run_eagf.py --seeds 42 123 456 --epochs 50
-
-    # With real EFR dataset
-    python run_eagf.py --data-root data/biometric/efr_processed
+    # With UCI Adult dataset
+    python run_eagf.py --data-root adult
 
 Output:
-    results/biometric/ablation/ablation_summary.csv   (Table 4)
-    results/biometric/main_results.csv                (Table 5)
-    results/reiot/node_class_results.csv              (Table 6)
-    figures/figure3.png                               (Figure 3)
-    figures/pareto_front.png
-    figures/reiot_fprp.png
-    results/summary_report.md
+    results/tables/*.csv
+    results/plots/*.png
+    results/logs/*.json
 """
 
 import argparse
@@ -42,17 +39,15 @@ import yaml
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="EAGF Full Experiment Pipeline")
+    p = argparse.ArgumentParser(description="EAGF Q1 Benchmark Pipeline")
     p.add_argument("--fast",       action="store_true",
                    help="Fast mode: 1 seed, 20 epochs (for testing)")
-    p.add_argument("--seeds",      nargs="+", type=int, default=[42, 123, 456])
+    p.add_argument("--seeds",      nargs="+", type=int,
+                   default=[42, 43, 44, 45, 46, 47, 48, 49, 50, 51])
     p.add_argument("--epochs",     type=int,  default=50)
     p.add_argument("--output",     default="results")
     p.add_argument("--data-root",  default=None,
-                   help="EFR dataset root; uses synthetic demo if not set")
-    p.add_argument("--skip-reiot", action="store_true")
-    p.add_argument("--skip-pareto",action="store_true",
-                   help="Skip 25-run Pareto grid (saves ~5x time)")
+                   help="Dataset root. Use 'adult' for UCI Adult, or path for EFR; synthetic demo if not set")
     return p.parse_args()
 
 
@@ -257,7 +252,7 @@ def main():
         print("Fast mode: 1 seed, 20 epochs")
 
     t_start = time.time()
-    banner("EAGF: Ethical AI Governance Framework — Full Pipeline")
+    banner("EAGF: Ethical AI Governance Framework — Q1 Benchmark Pipeline")
     print(f"  Seeds:  {args.seeds}")
     print(f"  Epochs: {args.epochs}")
     print(f"  Output: {args.output}")
@@ -268,56 +263,45 @@ def main():
         config = yaml.safe_load(f)
     config["training"]["epochs"] = args.epochs
 
-    from src.utils.data_loader import load_biometric_dataset
-    demo = (args.data_root is None)
-    data_root = args.data_root or "data/biometric/efr_processed"
-    print(f"  {'Demo synthetic' if demo else 'EFR'} dataset...")
-    dataset = load_biometric_dataset(
-        data_root=data_root, demo=demo, n_samples=1600, seed=args.seeds[0],
-    )
+    from src.utils.data_loader import load_adult_dataset, load_biometric_dataset
+    if args.data_root == "adult":
+        print("  UCI Adult dataset...")
+        dataset = load_adult_dataset(seed=args.seeds[0])
+        config.setdefault("data", {})
+        config["data"]["name"] = "adult"
+    else:
+        demo = (args.data_root is None)
+        data_root = args.data_root or "data/biometric/efr_processed"
+        print(f"  {'Demo synthetic' if demo else 'EFR'} dataset...")
+        dataset = load_biometric_dataset(
+            data_root=data_root, demo=demo, n_samples=1600, seed=args.seeds[0],
+        )
     print(f"  Train:{len(dataset['y_train'])} "
           f"Val:{len(dataset['y_val'])} Test:{len(dataset['y_test'])}")
 
-    bio_out = os.path.join(args.output, "biometric")
-    os.makedirs(bio_out, exist_ok=True)
+    os.makedirs(args.output, exist_ok=True)
     if "splits" in dataset:
         with open(os.path.join("data", "biometric", "splits.json"), "w") as f:
             json.dump(dataset["splits"], f)
 
-    # ── Steps 2-3: Biometric experiments ──────────────────────────────────
-    run_biometric_ablation(config, dataset, args.seeds, bio_out)
-    run_biometric_main(config, dataset, args.seeds, bio_out)
+    # ── Q1 benchmark suite ────────────────────────────────────────────────
+    banner("STEP 2 — Q1 Benchmark Suite")
+    from src.evaluation.benchmark_suite import run_q1_benchmark_suite
 
-    # ── Step 4: Pareto search (optional) ─────────────────────────────────
-    if not args.skip_pareto:
-        run_pareto(config, dataset, args.seeds[0], bio_out)
-    else:
-        print("\n  Skipping Pareto search (--skip-pareto).")
-
-    # ── Step 5: RE-IoT ────────────────────────────────────────────────────
-    if not args.skip_reiot:
-        run_reiot_experiment(args.output, args.seeds)
-    else:
-        print("\n  Skipping RE-IoT (--skip-reiot).")
-
-    # ── Step 6: Figures ───────────────────────────────────────────────────
-    generate_figures(args.output)
-
-    # ── Step 7: Report ────────────────────────────────────────────────────
-    from src.evaluation.report_generator import generate_report
-    report_path = os.path.join(args.output, "summary_report.md")
-    generate_report(bio_out, os.path.join(args.output, "reiot"), report_path)
-
-    # ── Final summary ─────────────────────────────────────────────────────
-    print_summary(args.output)
+    manifest = run_q1_benchmark_suite(
+        config=config,
+        dataset=dataset,
+        seeds=args.seeds,
+        output_root=args.output,
+    )
 
     elapsed = time.time() - t_start
     banner(f"DONE  —  total time {elapsed/60:.1f} min")
-    print(f"\n  Key outputs:")
-    print(f"    {args.output}/biometric/ablation/ablation_summary.csv  (Table 4)")
-    print(f"    {args.output}/biometric/main_results.csv               (Table 5)")
-    print(f"    {args.output}/reiot/node_class_results.csv             (Table 6)")
-    print(f"    figures/figure3.png                                    (Figure 3)")
+    print("\n  Q1 artifacts:")
+    print(f"    Tables: {len(manifest['tables'])} CSV files in {args.output}/tables")
+    print(f"    Plots:  {len(manifest['plots'])} PNG files in {args.output}/plots")
+    print(f"    Logs:   {len(manifest['logs'])} JSON files in {args.output}/logs")
+    print(f"    Manifest: {args.output}/logs/artifact_manifest.json")
     print()
 
 
