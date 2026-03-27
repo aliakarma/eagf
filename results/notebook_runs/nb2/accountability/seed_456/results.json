@@ -1,0 +1,10 @@
+{
+  "accuracy": 0.9388888888888889,
+  "recall_parity": 0.8095238095229925,
+  "clarity": 0.5,
+  "privacy": 0.2288065843621399,
+  "accountability": 1.0,
+  "trust_index": 0.6488830636204734,
+  "mia_auc": 0.42798353909465026,
+  "epsilon_eff": Infinity
+}

@@ -1,0 +1,22 @@
+{
+  "accuracy": 0.8866666666666667,
+  "recall_parity": 0.9999999999989895,
+  "clarity": 0.4818562091503268,
+  "privacy": 1.0,
+  "accountability": 0.3333333333333333,
+  "trust_index": 0.7037973856206624,
+  "mia_auc": 0.45828042328042323,
+  "epsilon_eff": 2.996359388411088,
+  "ti_components": {
+    "clarity_norm": 0.4818562091503268,
+    "fairness_norm": 0.9999999999989895,
+    "privacy_norm": 1.0,
+    "accountability_norm": 0.3333333333333333
+  },
+  "audit": {
+    "accountability": 0.3333333333333333,
+    "alpha_audit": 0.0,
+    "alpha_trace": 0.0,
+    "alpha_comply": 1.0
+  }
+}
