@@ -1,7 +1,10 @@
 """
 src/training/fairness_loss.py
-Recall-Parity Lagrangian Penalty (differentiable approximation)
-Paper: Section 3.7, Equation 11
+Training-time objective helpers.
+
+- Fairness penalty is a differentiable approximation used in gradient updates.
+- Transparency term is a structural surrogate regularizer; final transparency
+    reporting uses post-training clarity metrics.
 """
 import numpy as np
 import torch
@@ -46,10 +49,11 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
 
 
 def clarity_penalty_from_outputs(y_pred_proba, target_confidence=0.80):
-    """Differentiable clarity proxy from model output confidence.
+    """Structural transparency surrogate from model output confidence.
 
-    Encourages higher average prediction confidence as an explanation stability
-    proxy directly tied to model outputs.
+    This term enforces a training-time structural constraint proxy and should
+    not be interpreted as direct gradient optimization of the final clarity
+    metric reported in evaluation.
     """
     max_conf = y_pred_proba.max(dim=1).values.mean()
     return F.relu(torch.tensor(target_confidence, device=y_pred_proba.device) - max_conf) ** 2

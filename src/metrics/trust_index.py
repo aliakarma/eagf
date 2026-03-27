@@ -8,6 +8,12 @@ from typing import Dict, Optional
 
 IDEAL_VALUES = {"clarity": 1.0, "recall_parity": 1.0, "accountability": 1.0}
 DEFAULT_WEIGHTS = {"clarity": 0.25, "fairness": 0.25, "privacy": 0.25, "accountability": 0.25}
+DEFAULT_THRESHOLDS = {
+    "clarity": 0.80,
+    "fairness": 0.95,
+    "privacy": 0.80,
+    "accountability": 0.85,
+}
 
 
 def compute_ideal_privacy(epsilon=1e-6, mia=0.50, alpha=0.6) -> float:
@@ -23,7 +29,8 @@ def normalise(observed: float, ideal: float) -> float:
 
 def trust_index(clarity: float, fairness: float, privacy: float,
                 accountability: float, weights: Optional[Dict] = None,
-                ideal_privacy: Optional[float] = None) -> Dict:
+                ideal_privacy: Optional[float] = None,
+                thresholds: Optional[Dict] = None) -> Dict:
     """Compute composite Trust Index TI [Eq. 9]."""
     if weights is None:
         weights = DEFAULT_WEIGHTS.copy()
@@ -44,11 +51,26 @@ def trust_index(clarity: float, fairness: float, privacy: float,
           weights["privacy"]        * p_n +
           weights["accountability"] * a_n)
 
+    if thresholds is None:
+        thresholds = DEFAULT_THRESHOLDS.copy()
+
+    meets_thresholds = (
+        float(clarity) >= float(thresholds.get("clarity", 0.0)) and
+        float(fairness) >= float(thresholds.get("fairness", 0.0)) and
+        float(privacy) >= float(thresholds.get("privacy", 0.0)) and
+        float(accountability) >= float(thresholds.get("accountability", 0.0))
+    )
+    ti_clipped = float(np.clip(ti, 0.0, 1.0))
+    ti_certified = ti_clipped if meets_thresholds else 0.0
+
     return {
-        "ti": float(np.clip(ti, 0.0, 1.0)),
+        "ti": ti_clipped,
+        "ti_certified": ti_certified,
+        "certified": bool(meets_thresholds),
         "components": {"clarity_norm": c_n, "fairness_norm": f_n,
                        "privacy_norm": p_n, "accountability_norm": a_n},
         "weights": weights,
+        "thresholds": thresholds,
         "raw": {"clarity": clarity, "fairness": fairness,
                 "privacy": privacy, "accountability": accountability},
     }
