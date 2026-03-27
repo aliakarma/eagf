@@ -29,12 +29,9 @@ data:
 
 # --- Model architecture ---------------------------------------
 model:
-  architecture: cnn_lstm
-  cnn_filters: [32, 64]
-  cnn_kernel_size: 3
-  lstm_hidden_size: 128
-  lstm_layers: 2
-  dropout: 0.2
+  architecture: tabular_mlp
+  hidden_sizes: [256, 128, 64]
+  dropout: 0.1
   num_classes: 2                        # binary: normal / anomaly
 
 # --- Training -------------------------------------------------

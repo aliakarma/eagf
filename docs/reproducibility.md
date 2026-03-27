@@ -15,7 +15,7 @@ results, tables, and figures in:
 |---|:---:|---|
 | Source code available | ✅ | This repository |
 | Dependencies pinned | ✅ | `requirements.txt`, `environment.yml` |
-| Random seeds fixed | ✅ | Seeds 42, 123, 456 for all experiments |
+| Random seeds fixed | ✅ | Default pipeline uses 10 seeds (42-51) |
 | Dataset access instructions | ✅ | `data/README.md` |
 | Pre-processed split indices | ✅ | `data/biometric/splits.json` |
 | RE-IoT generation script | ✅ | `src/utils/data_loader.py --dataset reiot` |
@@ -34,7 +34,7 @@ results, tables, and figures in:
 
 | Parameter | Value | Config Key |
 |---|---|---|
-| Model architecture | ResNet-50 (pretrained ImageNet) | `model.architecture` |
+| Model architecture | Tabular MLP (PyTorch) | `model.architecture` |
 | Optimiser | AdamW | `training.optimizer` |
 | Learning rate | 1e-4 | `training.lr` |
 | Batch size | 64 | `training.batch_size` |
@@ -47,21 +47,21 @@ results, tables, and figures in:
 | Clarity λ_C | 0.05 (deployed model) | `governance.lambda_c` |
 | Pareto grid: λ_RP steps | 5 (log-spaced: 1e-3 to 1) | `governance.pareto_grid_size` |
 | Pareto grid: λ_C steps | 5 (log-spaced: 1e-3 to 1) | `governance.pareto_grid_size` |
-| SHAP variant | DeepExplainer | `governance.shap_explainer` |
+| SHAP variant | Optional; clarity surrogate available | `governance.shap_explainer` |
 | SHAP top-k features | 5 | `governance.shap_top_k` |
 | Attribution threshold τ | 1% of mean |φ̄| | `governance.shap_tau_pct` |
-| Dataset size (post-filter) | 10,021 images | — |
+| Dataset size | Derived from selected dataset | — |
 | Train / Val / Test split | 70 / 15 / 15 % | `data.split_ratios` |
 | Protected attributes | gender, skin_tone | `fairness.protected_groups` |
 | Fairness criterion | Recall Parity (RP) | `fairness.criterion` |
 | Bootstrap resamples (CI) | 1000 | `evaluation.bootstrap_n` |
-| Random seeds | 42, 123, 456 | `training.seed` |
+| Random seeds | 42-51 (default) | `training.seed` |
 
 ### RE-IoT Case Study (Case Study 2)
 
 | Parameter | Value | Config Key |
 |---|---|---|
-| Detector architecture | CNN-LSTM | `model.architecture` |
+| Detector architecture | Tabular MLP (PyTorch) | `model.architecture` |
 | Number of nodes | 120 (40 urban / 40 peri-urban / 40 rural) | `data.nodes` |
 | Telemetry sampling rate | 1 Hz | `data.frequency_hz` |
 | Attack types | FDIA, command injection, DoS | `data.attacks` |
@@ -70,7 +70,7 @@ results, tables, and figures in:
 | DP privacy budget (ε) | 3.0 | `governance.dp_epsilon` |
 | Fairness criterion | FPRP (node-class parity) | `fairness.criterion` |
 | Accountability standard | IEC 62351-compatible logging | `governance.ics_standard` |
-| Random seeds | 42, 123, 456 | `training.seed` |
+| Random seeds | 42-51 (default) | `training.seed` |
 
 ---
 
@@ -84,16 +84,16 @@ results, tables, and figures in:
 - **Justification:** Appropriate for comparing proportions over large samples
   (n > 1,500 test images). The normal approximation to the binomial is valid
   at this sample size (np > 5, n(1−p) > 5 for all comparisons).
-- **Result:** z = 1.34, p = 0.18 → not significant (accuracy difference acceptable)
+- **Result:** Computed at runtime from generated experiment outputs.
 
 ### Trust Index Comparison
 
 - **Test:** One-sample Wilcoxon signed-rank test
 - **Null hypothesis:** H₀: TI_EAGF = TI_Baseline
-- **Replicates:** 3 random seeds (n = 3 paired observations)
+- **Replicates:** default 10 seeds (n = 10 paired observations)
 - **Justification:** TI distributions cannot be assumed normal across only 3
   replicates. The Wilcoxon test is distribution-free and conservative.
-- **Result:** W = 6, p = 0.011 → significant at α = 0.05
+- **Result:** Computed at runtime from generated experiment outputs.
 
 ### Pillar Metric Confidence Intervals (C, P, A, RP)
 

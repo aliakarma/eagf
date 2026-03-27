@@ -16,8 +16,8 @@ data:
 
 # --- Model architecture ---------------------------------------
 model:
-  architecture: resnet50
-  pretrained: true                       # ImageNet pretrained weights
+  architecture: tabular_mlp
+  pretrained: false
   num_classes: null                      # set automatically from dataset
 
 # --- Training -------------------------------------------------

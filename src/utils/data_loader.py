@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import pandas as pd
+from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
@@ -111,6 +113,53 @@ def load_biometric_dataset(data_root="data/biometric/efr_processed",
         print(f"  EFR not found at '{data_root}'. Using synthetic demo data.")
     print(f"  Generating synthetic demo biometric dataset ({n_samples} samples)...")
     return generate_demo_biometric(n_samples=n_samples, seed=seed)
+
+
+def load_adult_dataset(seed=42, test_size=0.15, val_size=0.15):
+    """Load UCI Adult as a real tabular dataset option.
+
+    Returns a dataset dictionary with the same structure expected by trainers.
+    """
+    adult = fetch_openml("adult", version=2, as_frame=True)
+    X_df = adult.data.copy()
+    y_raw = adult.target.astype(str)
+
+    # Keep a reproducible protected-group signal for fairness evaluation.
+    groups = X_df["sex"].astype(str).values if "sex" in X_df.columns else np.array(["unknown"] * len(X_df))
+
+    X_df = pd.get_dummies(X_df, drop_first=False)
+    X = X_df.astype(np.float32).values
+    y = (y_raw.values == ">50K").astype(int)
+
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X).astype(np.float32)
+
+    idx = np.arange(len(X))
+    tr_idx, tmp_idx = train_test_split(idx, test_size=(test_size + val_size), stratify=y, random_state=seed)
+    val_ratio_in_tmp = val_size / (test_size + val_size)
+    va_idx, te_idx = train_test_split(
+        tmp_idx,
+        test_size=(1.0 - val_ratio_in_tmp),
+        stratify=y[tmp_idx],
+        random_state=seed,
+    )
+
+    return {
+        "X_train": X[tr_idx],
+        "y_train": y[tr_idx],
+        "groups_train": groups[tr_idx],
+        "X_val": X[va_idx],
+        "y_val": y[va_idx],
+        "groups_val": groups[va_idx],
+        "X_test": X[te_idx],
+        "y_test": y[te_idx],
+        "groups_test": groups[te_idx],
+        "n_classes": 2,
+        "n_features": X.shape[1],
+        "scaler": scaler,
+        "source": "uci_adult",
+        "splits": {"train": tr_idx.tolist(), "val": va_idx.tolist(), "test": te_idx.tolist()},
+    }
 
 
 def load_reiot_dataset(data_root="data/reiot", n_urban=40, n_periurban=40,

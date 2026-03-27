@@ -6,6 +6,7 @@ Paper: Section 3.5, Equation 8
 import hashlib, json, os, time
 import numpy as np
 from typing import Optional, Dict
+import yaml
 
 
 def audit_completeness(audit_log_path: str, total_decisions: int) -> float:
@@ -28,7 +29,10 @@ def compliance_score(checklist_path: str) -> float:
     if not os.path.exists(checklist_path):
         return 0.0
     with open(checklist_path) as f:
-        checklist = json.load(f)
+        if checklist_path.lower().endswith((".yaml", ".yml")):
+            checklist = yaml.safe_load(f)
+        else:
+            checklist = json.load(f)
     controls = checklist.get("controls", [])
     if not controls:
         return 0.0
@@ -43,7 +47,7 @@ def accountability_score(alpha_audit: float, alpha_trace: float,
 
 
 def compute_accountability(audit_log_path: str, total_decisions: int,
-                            lineage_fraction: float = 1.0,
+                            lineage_fraction: Optional[float] = None,
                             checklist_path: Optional[str] = None,
                             model_has_governance: bool = True) -> dict:
     """Full accountability computation.
@@ -55,23 +59,15 @@ def compute_accountability(audit_log_path: str, total_decisions: int,
         checklist_path: Path to compliance checklist JSON.
         model_has_governance: If True, assume full audit coverage.
     """
-    if model_has_governance:
-        # EAGF model: writes audit log for all decisions
-        a_audit = audit_completeness(audit_log_path, total_decisions)
-        if a_audit == 0.0 and total_decisions > 0:
-            # Log exists but was not written yet — score based on governance flag
-            a_audit = 0.98  # near-perfect by design
-    else:
-        a_audit = 0.10  # baseline: ad-hoc logging only
+    # Always measure audit completeness from the actual log file.
+    a_audit = audit_completeness(audit_log_path, total_decisions)
 
+    # If lineage is not explicitly provided, use observed audit coverage as proxy.
+    if lineage_fraction is None:
+        lineage_fraction = a_audit
     a_trace = float(np.clip(lineage_fraction, 0.0, 1.0))
 
-    if checklist_path and os.path.exists(checklist_path):
-        a_comply = compliance_score(checklist_path)
-    elif model_has_governance:
-        a_comply = 0.88  # based on 37/42 controls satisfied (paper)
-    else:
-        a_comply = 0.45  # baseline: partial compliance
+    a_comply = compliance_score(checklist_path) if checklist_path else 0.0
 
     A = accountability_score(a_audit, a_trace, a_comply)
     return {"accountability": A, "alpha_audit": a_audit,

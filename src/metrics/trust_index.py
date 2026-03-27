@@ -10,7 +10,7 @@ IDEAL_VALUES = {"clarity": 1.0, "recall_parity": 1.0, "accountability": 1.0}
 DEFAULT_WEIGHTS = {"clarity": 0.25, "fairness": 0.25, "privacy": 0.25, "accountability": 0.25}
 
 
-def compute_ideal_privacy(epsilon=3.0, mia=0.50, alpha=0.6) -> float:
+def compute_ideal_privacy(epsilon=1e-6, mia=0.50, alpha=0.6) -> float:
     from src.metrics.privacy import privacy_score
     return privacy_score(epsilon, mia, alpha)
 
