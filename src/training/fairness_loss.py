@@ -51,6 +51,7 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
 def clarity_penalty_from_outputs(y_pred_proba, target_confidence=0.80):
     """Structural transparency surrogate from model output confidence.
 
+    Transparency is enforced structurally (e.g., pruning/constraints) and is NOT optimized via gradient descent.
     This term enforces a training-time structural constraint proxy and should
     not be interpreted as direct gradient optimization of the final clarity
     metric reported in evaluation.

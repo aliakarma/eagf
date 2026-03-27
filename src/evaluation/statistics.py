@@ -68,15 +68,23 @@ def run_all_tests(baseline_dir, eagf_dir, seeds, output_path, n_test=1500):
     baseline_vals = {m: [] for m in METRICS}
     eagf_vals     = {m: [] for m in METRICS}
 
+    # Enforce paired-seed comparisons: only seeds available in BOTH arms are used.
+    paired_seeds = []
     for seed in seeds:
-        for vals, d in [(baseline_vals, baseline_dir), (eagf_vals, eagf_dir)]:
-            rp = os.path.join(d, f"seed_{seed}", "results.json")
-            if not os.path.exists(rp):
-                continue
-            with open(rp) as f:
-                res = json.load(f)
-            for m in METRICS:
-                vals[m].append(float(res.get(m, 0.0)))
+        b_path = os.path.join(baseline_dir, f"seed_{seed}", "results.json")
+        e_path = os.path.join(eagf_dir, f"seed_{seed}", "results.json")
+        if not (os.path.exists(b_path) and os.path.exists(e_path)):
+            continue
+
+        with open(b_path) as f:
+            b_res = json.load(f)
+        with open(e_path) as f:
+            e_res = json.load(f)
+
+        for m in METRICS:
+            baseline_vals[m].append(float(b_res.get(m, 0.0)))
+            eagf_vals[m].append(float(e_res.get(m, 0.0)))
+        paired_seeds.append(int(seed))
 
     results = {}
     for m in METRICS:
@@ -88,6 +96,7 @@ def run_all_tests(baseline_dir, eagf_dir, seeds, output_path, n_test=1500):
             "eagf":       bootstrap_ci(e),
             "delta_mean": float(np.mean(e) - np.mean(b)),
             "n_replicates": len(e),
+            "paired_seeds": paired_seeds,
         }
         if m == "accuracy":
             results[m]["ztest"] = two_proportion_ztest(

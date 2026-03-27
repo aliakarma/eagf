@@ -39,7 +39,7 @@
 
 ## Overview
 
-**EAGF** (*Ethical AI Governance Framework*) addresses a critical gap in the deployment of AI-driven cybersecurity systems: no existing framework simultaneously operationalises all four governance pillars mandated by the EU AI Act (2024) and NIST AI RMF (2023) — **transparency**, **fairness**, **privacy**, and **accountability** — within a single adversarial-aware lifecycle.
+**EAGF** (*Ethical AI Governance Framework*) addresses a critical gap in the deployment of AI-driven cybersecurity systems: to our knowledge, it is one of the first frameworks that jointly operationalises all four governance pillars mandated by the EU AI Act (2024) and NIST AI RMF (2023) — **transparency**, **fairness**, **privacy**, and **accountability** — within a single adversarial-aware lifecycle.
 
 This repository provides the complete implementation of EAGF as presented in the paper:
 
@@ -50,15 +50,19 @@ EAGF currently includes reproducible experiments on:
 - **Tabular fairness/privacy benchmarking:** synthetic biometric-style tabular data and optional UCI Adult support
 - **Renewable Energy IoT:** synthetic 5G solar-microgrid anomaly detection across heterogeneous node classes (FDIA, command-injection, DoS attacks)
 
+Methodology clarification: fairness and privacy are optimized via gradient-based multi-objective learning, while transparency is enforced via structural constraints and accountability is computed post-hoc.
+
+This work includes a fairness-aware differentially private baseline (AIF360-inspired reweighting + DP-SGD), evaluated under identical data splits and seeds for fair comparison.
+
 ---
 
 ## Key Contributions
 
 | # | Contribution | Code Location |
 |---|---|---|
-| **C1** | Four-pillar governance framework with formal operational definitions | `src/metrics/` |
+| **C1** | Four-pillar governance framework with formal operational definitions; fairness and privacy are optimized via gradient-based multi-objective learning, while transparency is enforced via structural constraints and accountability is computed post-hoc | `src/metrics/` |
 | **C2** | Composite Trust Index (TI) with AHP weighting | `src/metrics/trust_index.py` |
-| **C3** | Multi-objective Pareto-guided training with formal MOO formulation | `src/training/pareto_trainer.py` |
+| **C3** | Multi-objective Pareto-guided training with formal MOO formulation (fairness/privacy optimization + structural transparency constraints) | `src/training/pareto_trainer.py` |
 | **C4** | Dual-domain validation with full six-variant ablation study | `src/evaluation/`, `scripts/run_ablation.sh` |
 
 ### Why Joint Governance Matters
@@ -270,7 +274,7 @@ python src/utils/data_loader.py --dataset reiot --output data/reiot/ \
     --nodes 120 --attack-ratio 0.05 --seed 42
 ```
 
-> **Note:** The EFR dataset is a Kaggle community upload without formal demographic certification. For production use, we recommend CelebA, VGGFace2, or DemogPairs. See `data/README.md` for details.
+> **Note:** The EFR dataset is a Kaggle community upload without formal demographic certification, and corresponding fairness outcomes should be treated as exploratory only. For production benchmarking and deployment-facing evaluation, we recommend demographically certified datasets such as DemogPairs or CelebA. See `data/README.md` for details.
 
 ### 2. Run EAGF (Full Framework)
 
@@ -374,7 +378,7 @@ python -m src.training.eagf_trainer --model privacy --config configs/biometric_d
 # M4: Accountability only (audit logging + compliance)
 python -m src.training.eagf_trainer --model accountability --config configs/biometric_default.yaml
 
-# M5: EAGF Full (all pillars, joint MOO)
+# M5: EAGF Full (fairness/privacy optimization + structural transparency + post-hoc accountability)
 python -m src.training.eagf_trainer --model eagf --config configs/biometric_default.yaml
 ```
 
@@ -411,23 +415,30 @@ python -m src.evaluation.audit_logger \
 
 ## Reproducibility
 
-Full reproducibility details are provided in [`docs/reproducibility.md`](docs/reproducibility.md). The key guarantees are:
+Full reproducibility details are provided in [`docs/reproducibility.md`](docs/reproducibility.md). The key reproducibility settings are:
 
 | Element | Specification |
 |---|---|
-| Random seeds | 42, 123, 456 (all results are means ± 95% CI over 3 seeds) |
+| Random seeds | 42, 43, 44, 45, 46, 47, 48, 49, 50, 51 (all results are means ± std with 95% bootstrap CI over 10 seeds) |
 | Bootstrap resamples | n = 1000 (stratified by demographic group) |
-| Statistical tests | Accuracy: two-proportion z-test; TI: Wilcoxon signed-rank; C/P/A: bootstrap t-test |
+| Statistical tests | TI: paired Wilcoxon signed-rank; pillars: bootstrap 95% CI; summary: mean ± std |
 | DP accounting | Rényi moment accountant (Opacus library) |
 | SHAP variant | DeepExplainer (biometric); KernelExplainer (RE-IoT) |
 | Hardware | Single NVIDIA A100 40 GB (biometric); CPU-only (RE-IoT simulation) |
 | Training time | ~4 h per full EAGF run (biometric); ~20 min (RE-IoT) |
 
+### Statistical Validation
+
+- 10 independent random seeds are used for paired baseline-vs-EAGF comparisons.
+- Paired Wilcoxon signed-rank testing is used for Trust Index (TI).
+- Bootstrap 95% confidence intervals are reported for all four pillars (C, RP/FPRP, P, A).
+- Central tendency and variability are reported as mean ± standard deviation.
+
 ### One-Command Full Reproduction
 
 ```bash
 # Reproduces ALL tables and figures from the paper
-bash scripts/run_all.sh --seeds 42 123 456 --output results/
+bash scripts/run_all.sh --seeds 42 43 44 45 46 47 48 49 50 51 --output results/
 ```
 
 Expected outputs:
@@ -444,6 +455,24 @@ Expected outputs:
 ## Results
 
 All reported metrics are generated at runtime from actual model outputs. To reproduce results, run the pipeline and inspect generated CSV/JSON artifacts in `results/`.
+
+### Results Summary
+
+| Metric | Baseline (AIF360-DP) | EAGF |
+|---|---|---|
+| Accuracy | 0.932333 ± 0.037648 [0.908667, 0.953333] | 0.912500 ± 0.043167 [0.884583, 0.934583] |
+| RP | 0.949923 ± 0.078305 [0.898382, 0.992500] | 0.952381 ± 0.028122 [0.934524, 0.967063] |
+| Clarity (C) | 0.479891 ± 0.015442 [0.470728, 0.489032] | 0.478049 ± 0.018422 [0.467055, 0.489014] |
+| Privacy (P) | 0.988299 ± 0.018986 [0.976590, 1.000000] | 0.991112 ± 0.018608 [0.978977, 1.000000] |
+| Accountability (A) | 0.333333 ± 0.000000 [0.333333, 0.333333] | 1.000000 ± 0.000000 [1.000000, 1.000000] |
+| Trust Index (TI) | 0.687862 ± 0.020990 [0.674366, 0.698502] | 0.855386 ± 0.010130 [0.849150, 0.861122] |
+| Certified Trust Index (TI_certified) | 0.000000 | 0.000000 |
+
+Across 10 paired seeds, EAGF improves TI by +24.35% relative to baseline. The TI difference is statistically significant under paired Wilcoxon signed-rank testing (p = 0.005062) with a large effect size (r = 0.886405).
+
+### Certified Trust Index (TI_certified)
+
+`TI_certified` enforces minimum thresholds on all four pillars (C, RP/FPRP, P, A). If any pillar falls below its threshold, `TI_certified = 0`; otherwise, `TI_certified = TI`. This prevents governance gaming via single-dimension optimization and provides a quantitative proxy for deployment readiness rather than any guarantee of compliance. In current experiments, no model satisfies all thresholds, highlighting strict governance trade-offs.
 
 ---
 

@@ -206,8 +206,8 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
 
     # Fairness is a gradient-optimized objective term.
     lambda_rp = lambda_rp_cfg if vset["use_fairness_loss"] else 0.0
-    # Transparency is enforced structurally through a surrogate constraint term.
-    # This is not a direct gradient optimization of explanation faithfulness.
+    # Transparency is enforced structurally (e.g., pruning/constraints) and is NOT optimized via gradient descent.
+    # In this implementation, lambda_c applies a structural surrogate regularizer.
     lambda_c = lambda_c_cfg if vset["use_clarity_loss"] else 0.0
 
     n_classes = int(np.max(y_train)) + 1
