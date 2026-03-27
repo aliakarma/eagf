@@ -1,4 +1,13 @@
-"""PyTorch-based EAGF trainer with optional DP-SGD via Opacus."""
+"""PyTorch-based EAGF trainer with optional DP-SGD via Opacus.
+
+Methodology note:
+- Fairness and privacy are optimized during training.
+    - Fairness: gradient-based recall-parity penalty term.
+    - Privacy: DP-SGD training dynamics via Opacus (optimizer-level).
+- Transparency is enforced structurally via a confidence/complexity proxy
+    regularizer and evaluated with post-training clarity metrics.
+- Accountability is computed post-hoc from audit artifacts and checklists.
+"""
 
 import argparse
 import json
@@ -195,7 +204,10 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
     target_rp = float(thresholds.get("min_recall_parity", 0.95))
     target_clarity_conf = float(thresholds.get("min_clarity", 0.80))
 
+    # Fairness is a gradient-optimized objective term.
     lambda_rp = lambda_rp_cfg if vset["use_fairness_loss"] else 0.0
+    # Transparency is enforced structurally through a surrogate constraint term.
+    # This is not a direct gradient optimization of explanation faithfulness.
     lambda_c = lambda_c_cfg if vset["use_clarity_loss"] else 0.0
 
     n_classes = int(np.max(y_train)) + 1
@@ -205,6 +217,8 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
     g_train_idx = _encode_groups(groups_train, len(y_train))
     train_loader = _build_train_loader(X_train, y_train, g_train_idx, batch_size, seed)
 
+    # Privacy optimization is applied through DP-SGD updates (Opacus), not by
+    # adding a separate scalar privacy loss to the objective.
     dp_enabled = vset["use_dp"]
     epsilon_eff = float("inf")
     if dp_enabled:
@@ -244,9 +258,13 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
             else:
                 p_pos = probs[:, 0]
             l_fair = recall_parity_penalty_torch(yb, p_pos, gb, rp_target=target_rp)
+            # Structural transparency proxy: encourages stable/confident outputs
+            # as a training-time constraint surrogate.
             l_clarity = clarity_penalty_from_outputs(probs, target_confidence=target_clarity_conf)
 
-            loss = l_task + (lambda_rp * l_fair) + (lambda_c * l_clarity)
+            gradient_objective = l_task + (lambda_rp * l_fair)
+            structural_constraints = (lambda_c * l_clarity)
+            loss = gradient_objective + structural_constraints
             loss.backward()
             optimizer.step()
 
@@ -337,6 +355,7 @@ def _compute_all_metrics(model_adapter, X_train, y_train, X_val, y_val, groups_v
     mia_auc = float(mia_result["mia_auc"])
     P = privacy_score(epsilon_eff=epsilon_eff, mia_auc=mia_auc)
 
+    # Accountability remains post-hoc and is derived from audit/log artifacts.
     checklist_path = config.get("accountability", {}).get("compliance_checklist")
     if accountability_enabled is None:
         accountability_enabled = _resolve_variant_settings(variant)["use_accountability"]

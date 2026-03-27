@@ -53,9 +53,12 @@ def bootstrap_ci(values, n_resamples=1000, ci=0.95):
     resampled = [np.mean(np.random.choice(values, len(values), replace=True))
                  for _ in range(n_resamples)]
     alpha = (1 - ci) / 2
-    return {"mean": float(np.mean(values)), "std": float(np.std(values)),
-            "ci_lower": float(np.percentile(resampled, 100 * alpha)),
-            "ci_upper": float(np.percentile(resampled, 100 * (1 - alpha)))}
+    return {
+        "mean": float(np.mean(values)),
+        "std": float(np.std(values, ddof=1)) if len(values) > 1 else 0.0,
+        "ci95_lower": float(np.percentile(resampled, 100 * alpha)),
+        "ci95_upper": float(np.percentile(resampled, 100 * (1 - alpha))),
+    }
 
 
 def run_all_tests(baseline_dir, eagf_dir, seeds, output_path, n_test=1500):
@@ -89,6 +92,9 @@ def run_all_tests(baseline_dir, eagf_dir, seeds, output_path, n_test=1500):
         if m == "accuracy":
             results[m]["ztest"] = two_proportion_ztest(
                 np.mean(e), np.mean(b), n_test, n_test)
+        elif m == "trust_index":
+            # Required non-parametric paired test on TI.
+            results[m]["wilcoxon_signed_rank"] = wilcoxon_test(e, b)
         elif len(e) >= 5:
             results[m]["wilcoxon"] = wilcoxon_test(e, b)
         else:
@@ -116,7 +122,8 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--baseline-dir", required=True)
     p.add_argument("--eagf-dir",     required=True)
-    p.add_argument("--seeds", nargs="+", type=int, default=[42, 123, 456])
+    p.add_argument("--seeds", nargs="+", type=int,
+                   default=[42, 123, 456, 789, 101, 202, 303, 404, 505, 606])
     p.add_argument("--output", required=True)
     return p.parse_args()
 

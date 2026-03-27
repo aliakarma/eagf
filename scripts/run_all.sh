@@ -10,7 +10,7 @@
 #   bash scripts/run_all.sh [OPTIONS]
 #
 # Options:
-#   --seeds     SEED_LIST   Space-separated random seeds (default: "42 123 456")
+#   --seeds     SEED_LIST   Space-separated random seeds (default: "42 123 456 789 101 202 303 404 505 606")
 #   --config    CONFIG_DIR  Path to config directory (default: configs/)
 #   --output    OUTPUT_DIR  Path to results directory (default: results/)
 #   --device    DEVICE      pytorch device string (default: cuda:0 or cpu)
@@ -19,13 +19,13 @@
 #   --dry-run               Print commands without executing
 #
 # Example:
-#   bash scripts/run_all.sh --seeds "42 123 456" --output results/ --device cuda:0
+#   bash scripts/run_all.sh --seeds "42 123 456 789 101 202 303 404 505 606" --output results/ --device cuda:0
 # ============================================================
 
 set -euo pipefail
 
 # ── Default arguments ─────────────────────────────────────
-SEEDS="42 123 456"
+SEEDS="42 123 456 789 101 202 303 404 505 606"
 CONFIG_DIR="configs"
 OUTPUT_DIR="results"
 DEVICE="cuda:0"
@@ -102,7 +102,7 @@ fi
 
 # ── Step 2: Biometric case study — full EAGF (M5) ─────────
 echo ""
-echo "[Step 2] Running EAGF biometric case study (M5, 3 seeds)..."
+echo "[Step 2] Running EAGF biometric case study (M5, multi-seed)..."
 
 for SEED in ${SEEDS}; do
   echo "  [Seed ${SEED}] EAGF biometric..."
@@ -118,7 +118,7 @@ done
 # ── Step 3: Ablation study (M0–M5) ───────────────────────
 if [ "$SKIP_ABLATION" = false ]; then
   echo ""
-  echo "[Step 3] Running ablation study (M0–M5, 3 seeds)..."
+      echo "[Step 3] Running ablation study (M0–M5, multi-seed)..."
   run "bash scripts/run_ablation.sh \
         --config  ${CONFIG_DIR}/biometric_default.yaml \
         --seeds   \"${SEEDS}\" \
@@ -166,6 +166,7 @@ echo "[Step 7] Running statistical significance tests..."
 run "python -m src.evaluation.statistics \
       --baseline-dir  ${OUTPUT_DIR}/biometric/baseline/ \
       --eagf-dir      ${OUTPUT_DIR}/biometric/eagf/ \
+      --seeds         ${SEEDS} \
       --output        ${OUTPUT_DIR}/biometric/statistical_tests.json \
       2>&1 | tee ${LOG_DIR}/statistics.log"
 

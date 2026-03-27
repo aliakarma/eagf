@@ -2,6 +2,12 @@
 src/training/pareto_trainer.py — EAGF Pareto-Front Search
 Paper: Section 3.7 (MOO, Pareto exploration)
 Sweeps 5×5 grid of (lambda_RP, lambda_C), finds highest-TI solution.
+
+Scope note:
+- lambda_RP controls the fairness gradient term.
+- lambda_C controls a structural transparency surrogate regularizer.
+- Privacy is handled via DP-SGD in the trainer.
+- Accountability is post-hoc and is not a training objective.
 """
 import argparse, itertools, json, os
 import numpy as np
