@@ -1,0 +1,15 @@
+Experimental Findings
+
+The following claims are computed from generated artifacts and are not manually adjusted.
+
+1. Top trust-index performance is tied across methods: ablate_no_clarity, ablate_no_fairness, full.
+2. Compared with standard, full changes trust index by +0.1975 (+40.22%).
+3. Fairness (recall parity) changes by +0.0833 (+9.68%) and accuracy by -0.0458 (-4.74%).
+4. Pareto knee point occurs near lambda_rp=0.00, lambda_c=0.00, with accuracy=0.9208, recall_parity=0.9444, TI=0.6885.
+5. Pareto frontier curvature is classified as near_linear_or_degenerate.
+6. Across epsilon sweep, accuracy moves from 0.8792 (eps=1.0) to 0.9250 (eps=10.0), while MIA AUC moves from 0.4295 to 0.4452.
+7. Privacy-score deterioration slows after mid-range epsilon values (diminishing marginal harm at higher epsilon).
+8. Ablation ranking by TI impact identifies accountability as the largest contributor (delta TI when removed = +0.1667).
+9. Removing DP increases attack susceptibility (MIA AUC change no-DP minus full = +0.0231).
+10. Clarity proxy has weak SHAP alignment (Pearson r=-0.054, p=0.742; Spearman rho=-0.091, p=0.577), indicating limited convergent validity in this run.
+11. Current artifacts use fewer than 3 seeds; treat inference as directional and regenerate multi-seed runs for robust significance claims.

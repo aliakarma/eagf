@@ -1,0 +1,18 @@
+Discussion
+
+The benchmark indicates that governance-aware optimization can improve composite trust metrics relative to a standard baseline, with measurable trade-offs across utility and governance dimensions.
+Pareto behavior should be interpreted as a utility-fairness balance surface rather than a single optimum; knee-point operating regions are preferable when decision-makers require balanced objectives.
+DP analysis confirms the expected utility-privacy tension and supports reporting epsilon-conditioned performance rather than a single privacy operating point.
+Ablation results should be used to prioritize components with the largest observed trust-index impact under the selected configuration.
+A key limitation is weak correlation between the clarity proxy and SHAP concentration in the current run; explanation-quality claims should therefore remain conservative until validated with stronger agreement metrics and larger evaluation sets.
+Another limitation is insufficient seed count for stable inferential conclusions; full multi-seed execution is required for publication-grade statistical certainty.
+Overall, the evidence supports a transparent, reproducible governance narrative when paired with explicit uncertainty reporting and sensitivity analysis.
+
+Key Contributions
+
+1. Evidence-grounded comparative analysis across baseline, full method, and ablations from generated artifacts.
+2. Pareto-front interpretation with curvature label (near_linear_or_degenerate) and knee-point extraction for operating-point selection.
+3. Explicit epsilon-conditioned privacy-utility interpretation using both model accuracy and MIA AUC.
+4. Component-level attribution of trust-index changes through ablation deltas.
+5. Clarity validation reported with Pearson/Spearman statistics (n=40) and limitation flagging when weak.
+6. Reproducibility note: current analysis is based on 1 seed(s).

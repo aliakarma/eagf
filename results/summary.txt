@@ -1,0 +1,4 @@
+total_seeds: 10
+baseline_ti_mean: 0.687862
+eagf_ti_mean: 0.68216
+improvement_percent: -0.828885
