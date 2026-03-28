@@ -3,7 +3,7 @@ src/metrics/clarity.py — EAGF Transparency Metric: Explanation Clarity (C)
 Paper: Section 3.2, Equations 1-2
 
 Clarity is computed as:
-    ClarityScore(i) = fidelity(i) * (1 - H_norm(pred_dist_i))
+    ClarityScore(i) = fidelity(i) * (1 - H_norm(pred_dist_i)) ** 2
 where pred_dist_i is the distribution of hard-label predictions in the
 local neighbourhood of instance i, and H_norm is the normalized Shannon
 entropy of that distribution.
@@ -27,7 +27,7 @@ def _local_neighbourhood(X, idx, n_neighbours=50, noise_scale=0.1, rng=None):
 
 
 def _entropy_based_clarity(probs, fidelity):
-    """ClarityScore = fidelity * (1 - normalized_entropy(probs)).
+    """ClarityScore = fidelity * (1 - normalized_entropy(probs)) ** 2.
 
     Args:
         probs: 1-D probability / frequency vector (sums to ~1).  In the
@@ -45,7 +45,7 @@ def _entropy_based_clarity(probs, fidelity):
     entropy = -np.sum(probs * np.log(probs))
     max_entropy = np.log(max(n_classes, 2))
     normalized_entropy = entropy / max_entropy
-    clarity = fidelity * (1.0 - normalized_entropy)
+    clarity = fidelity * (1.0 - normalized_entropy) ** 2
     return float(np.clip(clarity, 0.0, 1.0))
 
 
