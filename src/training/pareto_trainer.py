@@ -70,9 +70,17 @@ def run_pareto_search(config, lambda_rp_range, lambda_c_range, n_steps,
     with open(os.path.join(output_dir, "pareto_results.json"), "w") as f:
         json.dump({"all_results": all_results, "pareto_front": front, "best": best}, f, indent=2)
 
+    ti_values = [r.get("trust_index", 0) for r in all_results]
+    ti_spread = max(ti_values) - min(ti_values)
     print(f"\nPareto search done. Best TI={best['trust_index']:.3f} "
           f"(lrp={best['lambda_rp']:.4f}, lc={best['lambda_c']:.4f})")
-    return {"pareto_front": front, "best": best, "all_results": all_results}
+    print(f"  Pareto TI spread: min={min(ti_values):.3f} max={max(ti_values):.3f} Δ={ti_spread:.3f}")
+    if ti_spread <= 0.05:
+        print(f"  WARNING: Pareto TI spread {ti_spread:.3f} ≤ 0.05 — trade-offs are weak.")
+    else:
+        print(f"  ✓ Pareto spread {ti_spread:.3f} > 0.05 — real trade-offs confirmed.")
+    return {"pareto_front": front, "best": best, "all_results": all_results,
+            "ti_spread": ti_spread}
 
 
 def parse_args():
