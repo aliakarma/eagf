@@ -271,6 +271,19 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
 
             gradient_objective = l_task + (lambda_rp * l_fair)
             structural_constraints = (lambda_c * l_clarity)
+
+            # L1 weight penalty on the first layer when clarity is active.
+            # Sparsifying the input projection encourages the model to rely on fewer
+            # input features. Fewer active features → smaller local explanation size
+            # → higher ClarityScore = Fidelity / (1 + Size).
+            if lambda_c > 0:
+                try:
+                    first_layer = model.net[0] if hasattr(model, 'net') else model._module.net[0]
+                    l_weight_l1 = first_layer.weight.abs().mean()
+                    structural_constraints = structural_constraints + lambda_c * l_weight_l1
+                except Exception:
+                    pass
+
             loss = gradient_objective + structural_constraints
             loss.backward()
             optimizer.step()
