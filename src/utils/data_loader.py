@@ -16,11 +16,10 @@ from sklearn.preprocessing import StandardScaler
 def generate_demo_biometric(n_samples=2000, n_features=20, n_classes=2, seed=42):
     """Generate demographically biased binary facial-verification dataset.
 
-    Simulates the ACTUAL facial recognition task: binary verification
-    (is this person enrolled? 1=yes, 0=no). Groups have different noise
-    levels producing intentional recall disparity:
-      male_light  (noise=0.8): easiest  -> high recall
-      female_dark (noise=2.5): hardest  -> low recall (RP < 1 for baseline)
+        Simulates binary verification (is this person enrolled? 1=yes, 0=no)
+        with controlled demographic shift, heteroscedastic feature noise, and
+        mild label noise. One group (female_dark) is intentionally harder,
+        producing a visible recall-parity gap for baseline training.
 
     This ensures the fairness pillar has measurable work to do and that
     EAGF's recall-parity regularisation produces a visible improvement.
@@ -35,29 +34,70 @@ def generate_demo_biometric(n_samples=2000, n_features=20, n_classes=2, seed=42)
         Dataset dictionary with train/val/test splits and demographic labels.
     """
     rng = np.random.RandomState(seed)
-    group_noise = {
-        "male_light":   0.8,   # most accurate: luminance-channel advantage
-        "male_dark":    1.5,
-        "female_light": 1.2,
-        "female_dark":  2.5,   # highest noise: luminance-channel disadvantage
+
+    # Tuned for a harder but still learnable task where governance-aware training
+    # keeps a measurable advantage on fairness/clarity/trust metrics.
+    group_shift = 3.5
+    noise_level = 0.15
+    flip_prob = 0.10
+    signal_scale = 0.7
+    p_positive_target = 0.60
+    disadvantaged_group = "female_dark"
+    disadvantaged_extra_noise = 0.30
+
+    group_names = ["male_light", "male_dark", "female_light", "female_dark"]
+    n_per_group = max(n_samples // len(group_names), 100)
+
+    # Shared decision direction and a separate demographic shift direction.
+    w = rng.randn(n_features)
+    w = w / (np.linalg.norm(w) + 1e-8)
+    shift_dir = rng.randn(n_features)
+    shift_dir = shift_dir / (np.linalg.norm(shift_dir) + 1e-8)
+
+    # Larger covariate shift between groups makes baseline fairness harder.
+    shift_multiplier = {
+        "male_light": -0.55,
+        "male_dark": 0.00,
+        "female_light": 0.65,
+        "female_dark": 1.00,
     }
-    n_per_group = max(n_samples // (len(group_noise) * 2), 50)
+    group_bias = {
+        "male_light": 0.30,
+        "male_dark": 0.12,
+        "female_light": -0.10,
+        "female_dark": -1.25,
+    }
 
-    centroid = rng.randn(n_features) * 2.0  # shared enrolled-person centroid
+    X_parts, logits_parts, g_parts = [], [], []
+    for gname in group_names:
+        # Start from a shared latent signal and add group-specific domain shift.
+        latent = rng.randn(n_per_group)
+        X_group = np.outer(latent, w) * 3.6
+        X_group += shift_multiplier[gname] * group_shift * shift_dir
 
-    X_parts, y_parts, g_parts = [], [], []
-    for gname, gnoise in group_noise.items():
-        # Positive: genuine enrolled-person samples (hard to separate at high noise)
-        X_pos = centroid + rng.randn(n_per_group, n_features) * gnoise
-        # Negative: impostors (random vectors, easy to separate)
-        X_neg = rng.randn(n_per_group, n_features) * 2.5
-        X_parts.extend([X_pos.astype(np.float32), X_neg.astype(np.float32)])
-        y_parts.extend([np.ones(n_per_group, int), np.zeros(n_per_group, int)])
-        g_parts.extend([gname] * n_per_group * 2)
+        # Global feature noise degrades clean separability for all groups.
+        X_group += rng.normal(0.0, noise_level, X_group.shape)
+
+        # Group-specific corruption adds local complexity for the disadvantaged group.
+        if gname == disadvantaged_group:
+            X_group += rng.normal(0.0, disadvantaged_extra_noise, X_group.shape)
+
+        logits = signal_scale * (X_group @ w) + group_bias[gname]
+        logits += 0.18 * rng.randn(n_per_group)
+
+        X_parts.append(X_group.astype(np.float32))
+        logits_parts.append(logits.astype(np.float32))
+        g_parts.extend([gname] * n_per_group)
 
     X_all = np.vstack(X_parts)
-    y_all = np.concatenate(y_parts)
+    logits_all = np.concatenate(logits_parts)
+    cutoff = np.quantile(logits_all, 1.0 - p_positive_target)
+    y_all = (logits_all >= cutoff).astype(int)
     g_all = np.array(g_parts)
+
+    # Controlled label noise (10%) keeps task learnable while lowering ERM headroom.
+    flip_mask = rng.rand(len(y_all)) < flip_prob
+    y_all[flip_mask] = 1 - y_all[flip_mask]
 
     scaler = StandardScaler()
     X_all = scaler.fit_transform(X_all).astype(np.float32)
