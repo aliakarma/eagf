@@ -363,6 +363,9 @@ def _compute_all_metrics(model_adapter, X_train, y_train, X_val, y_val, groups_v
     P = privacy_score(epsilon_eff=epsilon_eff, mia_auc=mia_auc)
 
     # Accountability remains post-hoc and is derived from audit/log artifacts.
+    # Dynamic overrides for data-driven controls ensure accountability is earned,
+    # not hardcoded: the checklist entries for MIA and fairness are overridden
+    # based on the actual computed metrics.
     checklist_path = config.get("accountability", {}).get("compliance_checklist")
     if accountability_enabled is None:
         accountability_enabled = _resolve_variant_settings(variant)["use_accountability"]
@@ -372,6 +375,10 @@ def _compute_all_metrics(model_adapter, X_train, y_train, X_val, y_val, groups_v
         lineage_fraction=None,
         checklist_path=checklist_path,
         model_has_governance=bool(accountability_enabled),
+        metric_overrides={
+            "mia_stress_test": mia_auc <= 0.60,
+            "fairness_monitoring": Fv >= 0.95,
+        },
     )
     A = float(acc_result["accountability"])
 

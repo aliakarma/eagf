@@ -63,6 +63,56 @@ def banner(msg):
     print("=" * w)
 
 
+def write_summary(results_root: str, seeds: list) -> str:
+    """Read per-seed result JSONs and write a fresh summary.txt.
+
+    Computes mean Trust Index for baseline and EAGF across all provided seeds,
+    then overwrites results/summary.txt with the correct values.
+
+    Args:
+        results_root: Root directory where baseline/ and eagf/ subdirs live.
+        seeds: List of integer seeds used in the experiment.
+
+    Returns:
+        Path to the written summary file.
+    """
+    baseline_tis = []
+    eagf_tis = []
+    for seed in seeds:
+        for variant, store in (("baseline", baseline_tis), ("eagf", eagf_tis)):
+            path = os.path.join(results_root, variant, f"seed_{seed}", "results.json")
+            if os.path.exists(path):
+                with open(path) as f:
+                    data = json.load(f)
+                ti = data.get("trust_index")
+                if ti is not None:
+                    store.append(float(ti))
+
+    summary_path = os.path.join(results_root, "summary.txt")
+    tmp_path = summary_path + ".tmp"
+
+    b_mean = float(np.mean(baseline_tis)) if baseline_tis else float("nan")
+    e_mean = float(np.mean(eagf_tis)) if eagf_tis else float("nan")
+    if b_mean > 0 and not np.isnan(b_mean):
+        improvement = (e_mean - b_mean) / b_mean * 100.0
+    else:
+        improvement = float("nan")
+
+    lines = [
+        f"total_seeds: {len(seeds)}",
+        f"baseline_ti_mean: {b_mean:.6f}",
+        f"eagf_ti_mean: {e_mean:.6f}",
+        f"improvement_percent: {improvement:.6f}",
+    ]
+    os.makedirs(results_root, exist_ok=True)
+    # Write to temp file then atomically replace to avoid partial reads
+    with open(tmp_path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    os.replace(tmp_path, summary_path)
+    print(f"  Summary written → {summary_path}")
+    return summary_path
+
+
 def run_biometric_ablation(config, dataset, seeds, output_dir):
     """Run 6-variant ablation across all seeds."""
     from src.training.eagf_trainer import train_variant
@@ -287,6 +337,9 @@ def main():
     # ── Steps 2-3: Biometric experiments ──────────────────────────────────
     run_biometric_ablation(config, dataset, args.seeds, bio_out)
     run_biometric_main(config, dataset, args.seeds, bio_out)
+
+    # ── Step 3b: Write fresh summary from seed JSONs ──────────────────────
+    write_summary(bio_out, args.seeds)
 
     # ── Step 4: Pareto search (optional) ─────────────────────────────────
     if not args.skip_pareto:

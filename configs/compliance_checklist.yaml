@@ -46,7 +46,7 @@ controls:
     satisfied: true
   - id: audit_log_completeness
     description: "100% of decisions cryptographically logged"
-    satisfied: true
+    satisfied: false
   - id: audit_lineage
     description: "Full data lineage recoverable"
     satisfied: true
@@ -55,10 +55,10 @@ controls:
     satisfied: true
   - id: fairness_monitoring
     description: "Ongoing fairness monitoring enabled"
-    satisfied: true
+    satisfied: false
   - id: mia_stress_test
     description: "Membership inference attack evaluated"
-    satisfied: true
+    satisfied: false
   - id: model_version_registry
     description: "Model version and hash recorded"
     satisfied: true

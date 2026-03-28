@@ -113,26 +113,33 @@ def plot_pareto_front(results_json, output_path, figsize=(7, 5), dpi=200):
 
 
 def plot_fprp_bar(results_csv, output_path, figsize=(8, 4), dpi=200):
-    """RE-IoT node-class FPR/FPRP comparison bar chart."""
+    """RE-IoT node-class FPR/FPRP comparison bar chart.
+
+    Reads FPR values from the computed results CSV (no hardcoded fallback).
+    The CSV must contain columns: model, urban_fpr_mean, periurban_fpr_mean,
+    rural_fpr_mean (produced by aggregate_results with fairness_criterion='fprp').
+    """
     rows, _ = _read_csv(results_csv)
     node_classes = ["urban", "periurban", "rural"]
-    baseline_fpr = [3.1, 5.8, 9.4]
-    eagf_fpr     = [3.3, 3.9, 3.7]
+    baseline_fpr = None
+    eagf_fpr = None
 
-    # Override from CSV if available
     for r in rows:
-        if r.get("model","").lower() == "baseline":
-            try:
-                baseline_fpr = [float(r.get(f"{c}_fpr_mean", v))
-                                 for c, v in zip(node_classes, baseline_fpr)]
-            except Exception:
-                pass
-        elif r.get("model","").lower() == "eagf":
-            try:
-                eagf_fpr = [float(r.get(f"{c}_fpr_mean", v))
-                             for c, v in zip(node_classes, eagf_fpr)]
-            except Exception:
-                pass
+        model_name = r.get("model", r.get("model_id", "")).lower()
+        try:
+            vals = [float(r.get(f"{c}_fpr_mean", "nan")) for c in node_classes]
+        except (ValueError, TypeError):
+            continue
+        if any(np.isnan(v) for v in vals):
+            continue
+        if "baseline" in model_name:
+            baseline_fpr = vals
+        elif "eagf" in model_name:
+            eagf_fpr = vals
+
+    if baseline_fpr is None or eagf_fpr is None:
+        print(f"  Warning: could not load FPR data from {results_csv}; skipping FPRP plot.")
+        return
 
     x = np.arange(len(node_classes))
     w = 0.35
