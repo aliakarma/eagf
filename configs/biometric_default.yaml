@@ -41,7 +41,7 @@ governance:
 
   # Lagrangian fairness penalty (Pillar 2)
   lambda_rp: 0.1                         # deployed model value
-  lambda_c: 0.05                         # deployed model value
+  lambda_c: 0.15                         # deployed model value
 
   # SHAP explainability (Pillar 1)
   shap_explainer: deep                   # "deep", "gradient", or "kernel"

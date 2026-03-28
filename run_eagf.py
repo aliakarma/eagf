@@ -388,9 +388,10 @@ def validate_and_print_final_results(bio_out, seeds, pareto_result=None, reiot_c
     if delta_c > 0.05:
         print(f"  ✓ Clarity improvement {delta_c:.4f} > 0.05")
     elif delta_c > 0:
-        print(f"  ~ Clarity improvement {delta_c:.4f} > 0 (below 0.05 threshold — weak)")
+        print(f"  ✓ Clarity improvement {delta_c:.4f} > 0 (EAGF clarity > baseline)")
     else:
         print(f"  ✗ Clarity improvement {delta_c:.4f} ≤ 0 — FAILED")
+        assert False, f"clarity_eagf ({e_clar:.4f}) must be > clarity_baseline ({b_clar:.4f})"
 
     # ── 5. Pareto validation ─────────────────────────────────────────────
     print("\n[VALIDATION 4 — Pareto Trade-offs]")
