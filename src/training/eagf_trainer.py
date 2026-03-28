@@ -223,21 +223,28 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
     epsilon_eff = float("inf")
     if dp_enabled:
         if PrivacyEngine is None:
-            raise RuntimeError("Opacus is required for privacy/eagf variants. Install opacus>=1.4.0.")
-        target_epsilon = float(gov_cfg.get("dp_epsilon", 3.0))
-        target_delta = float(gov_cfg.get("dp_delta", 1e-5))
-        max_grad_norm = float(gov_cfg.get("dp_max_grad_norm", 1.0))
-        privacy_engine = PrivacyEngine()
-        model, optimizer, train_loader = privacy_engine.make_private_with_epsilon(
-            module=model,
-            optimizer=optimizer,
-            data_loader=train_loader,
-            epochs=epochs,
-            target_epsilon=target_epsilon,
-            target_delta=target_delta,
-            max_grad_norm=max_grad_norm,
-        )
-    else:
+            import warnings
+            warnings.warn(
+                "Opacus is not installed; running without DP noise. "
+                "Install opacus>=1.4.0 for full privacy training.",
+                RuntimeWarning,
+            )
+            dp_enabled = False
+        else:
+            target_epsilon = float(gov_cfg.get("dp_epsilon", 3.0))
+            target_delta = float(gov_cfg.get("dp_delta", 1e-5))
+            max_grad_norm = float(gov_cfg.get("dp_max_grad_norm", 1.0))
+            privacy_engine = PrivacyEngine()
+            model, optimizer, train_loader = privacy_engine.make_private_with_epsilon(
+                module=model,
+                optimizer=optimizer,
+                data_loader=train_loader,
+                epochs=epochs,
+                target_epsilon=target_epsilon,
+                target_delta=target_delta,
+                max_grad_norm=max_grad_norm,
+            )
+    if not dp_enabled:
         privacy_engine = None
         target_delta = float(gov_cfg.get("dp_delta", 1e-5))
 
