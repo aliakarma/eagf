@@ -1,0 +1,12 @@
+{
+  "n_urban": 20,
+  "n_periurban": 20,
+  "n_rural": 20,
+  "n_windows_per_node": 50,
+  "attacks": [
+    "fdia",
+    "command_injection",
+    "dos"
+  ],
+  "seed": 42
+}

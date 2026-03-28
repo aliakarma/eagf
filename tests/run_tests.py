@@ -157,26 +157,30 @@ run("bootstrap_ci_order", lambda: ci["ci_lower"]<=ci["mean"]<=ci["ci_upper"])
 
 # ── Full integration ───────────────────────────────────────────────
 print("\n[integration]")
-with open("configs/biometric_default.yaml") as f:
-    cfg=yaml.safe_load(f)
-cfg["training"]["epochs"]=20
-from src.training.eagf_trainer import train_variant
-ds=generate_demo_biometric(n_samples=400,seed=42)
-m0=train_variant("baseline",cfg,ds.copy(),seed=42,output_dir="/tmp/tr_final/b/s42")
-m5=train_variant("eagf",    cfg,ds.copy(),seed=42,output_dir="/tmp/tr_final/e/s42")
-run("baseline_ti_range",  lambda: 0<=m0["trust_index"]<=1)
-run("eagf_ti_range",      lambda: 0<=m5["trust_index"]<=1)
-run("variant_clarity_range",  lambda: 0<=m5["clarity"]<=1 and 0<=m0["clarity"]<=1)
-run("eagf_acc_valid",     lambda: 0<=m5["accuracy"]<=1)
-run("baseline_rp_lt_1",   lambda: m0["recall_parity"]<1.0)
+try:
+    import torch  # noqa: F401 -- verify torch is available before running integration tests
+    with open("configs/biometric_default.yaml") as f:
+        cfg=yaml.safe_load(f)
+    cfg["training"]["epochs"]=20
+    from src.training.eagf_trainer import train_variant
+    ds=generate_demo_biometric(n_samples=400,seed=42)
+    m0=train_variant("baseline",cfg,ds.copy(),seed=42,output_dir="/tmp/tr_final/b/s42")
+    m5=train_variant("eagf",    cfg,ds.copy(),seed=42,output_dir="/tmp/tr_final/e/s42")
+    run("baseline_ti_range",  lambda: 0<=m0["trust_index"]<=1)
+    run("eagf_ti_range",      lambda: 0<=m5["trust_index"]<=1)
+    run("variant_clarity_range",  lambda: 0<=m5["clarity"]<=1 and 0<=m0["clarity"]<=1)
+    run("eagf_acc_valid",     lambda: 0<=m5["accuracy"]<=1)
+    run("baseline_rp_lt_1",   lambda: m0["recall_parity"]<1.0)
 
-# Variant consistency checks
-m3=train_variant("privacy", cfg,ds.copy(),seed=42,output_dir="/tmp/tr_final/p/s42")
-m4=train_variant("accountability",cfg,ds.copy(),seed=42,output_dir="/tmp/tr_final/a/s42")
-run("privacy_epsilon_finite",  lambda: np.isfinite(m3["epsilon_eff"]))
-run("baseline_epsilon_infinite", lambda: np.isinf(m0["epsilon_eff"]))
-run("privacy_only_p_gt_b",    lambda: m3["privacy"]>m0["privacy"])
-run("accountability_only_a_gt_b", lambda: m4["accountability"]>m0["accountability"])
+    # Variant consistency checks
+    m3=train_variant("privacy", cfg,ds.copy(),seed=42,output_dir="/tmp/tr_final/p/s42")
+    m4=train_variant("accountability",cfg,ds.copy(),seed=42,output_dir="/tmp/tr_final/a/s42")
+    run("privacy_epsilon_finite",  lambda: np.isfinite(m3["epsilon_eff"]))
+    run("baseline_epsilon_infinite", lambda: np.isinf(m0["epsilon_eff"]))
+    run("privacy_only_p_gt_b",    lambda: m3["privacy"]>m0["privacy"])
+    run("accountability_only_a_gt_b", lambda: m4["accountability"]>m0["accountability"])
+except ImportError as torch_err:
+    print(f"  SKIP  integration tests (torch not installed: {torch_err})")
 
 # ── Summary ────────────────────────────────────────────────────────
 print(f"\n{'='*60}")

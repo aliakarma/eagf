@@ -56,8 +56,8 @@ def bootstrap_ci(values, n_resamples=1000, ci=0.95):
     return {
         "mean": float(np.mean(values)),
         "std": float(np.std(values, ddof=1)) if len(values) > 1 else 0.0,
-        "ci95_lower": float(np.percentile(resampled, 100 * alpha)),
-        "ci95_upper": float(np.percentile(resampled, 100 * (1 - alpha))),
+        "ci_lower": float(np.percentile(resampled, 100 * alpha)),
+        "ci_upper": float(np.percentile(resampled, 100 * (1 - alpha))),
     }
 
 
