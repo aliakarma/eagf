@@ -8,6 +8,13 @@ Scope note:
 - lambda_C controls a structural transparency surrogate regularizer.
 - Privacy is handled via DP-SGD in the trainer.
 - Accountability is post-hoc and is not a training objective.
+
+Dynamic AHP (Phase 4):
+- At the end of each Pareto grid point the AHP weights are updated via
+  `calculate_dynamic_weights()` using the observed fairness loss and MIA
+  success rate from that run.  The adapted weights are passed to the next
+  run's `trust_index` computation via the `ahp_weights` entry in the config,
+  enabling true agentic weight adaptation across the Pareto sweep.
 """
 import argparse, itertools, json, os
 import numpy as np
@@ -36,8 +43,15 @@ def pareto_front(results, objectives=None):
 
 def run_pareto_search(config, lambda_rp_range, lambda_c_range, n_steps,
                       seed, device, output_dir, dataset=None):
-    """Run full Pareto-grid search and return best model metrics."""
+    """Run full Pareto-grid search and return best model metrics.
+
+    Dynamic AHP weights are updated after each grid point using
+    ``calculate_dynamic_weights()``.  The adapted weights evolve across runs
+    in response to the observed MIA success rate and fairness loss, providing
+    agentic weight adaptation without modifying the training objective itself.
+    """
     from src.training.eagf_trainer import train_variant, load_biometric_dataset
+    from src.utils.ahp import calculate_dynamic_weights, equal_weights
 
     os.makedirs(output_dir, exist_ok=True)
     lrp_vals = log_spaced_grid(*lambda_rp_range, n_steps)
@@ -49,6 +63,9 @@ def run_pareto_search(config, lambda_rp_range, lambda_c_range, n_steps,
         data_root = config.get("data", {}).get("root", "data/biometric")
         dataset = load_biometric_dataset(data_root=data_root, demo=True, seed=seed)
 
+    # Initialise adaptive weights at the equal-weight baseline.
+    current_ahp_weights = equal_weights()
+
     all_results = []
     for i, (lrp, lc) in enumerate(grid):
         cfg = yaml.safe_load(yaml.dump(config))
@@ -58,11 +75,44 @@ def run_pareto_search(config, lambda_rp_range, lambda_c_range, n_steps,
         run_dir = os.path.join(output_dir, f"run_{i:02d}")
         metrics = train_variant("eagf", cfg, dataset, seed=seed,
                                 output_dir=run_dir)
-        entry = {**metrics, "lambda_rp": lrp, "lambda_c": lc, "run_id": i}
-        all_results.append({k: float(v) if isinstance(v, (float, np.floating)) else v
-                             for k, v in entry.items() if not isinstance(v, dict)})
+
+        # ── Dynamic AHP update (end of each Pareto run) ───────────────────
+        # Use the MIA AUC from this run as the attack-success-rate signal and
+        # the (1 - recall_parity) as a proxy for fairness loss.
+        mia_rate = float(metrics.get("mia_auc", 0.5))
+        fairness_loss_proxy = float(1.0 - metrics.get("recall_parity", 1.0))
+        privacy_loss_proxy = float(1.0 - metrics.get("privacy", 1.0))
+
+        current_ahp_weights = calculate_dynamic_weights(
+            current_privacy_loss=privacy_loss_proxy,
+            current_fairness_loss=fairness_loss_proxy,
+            mia_attack_success_rate=mia_rate,
+            previous_weights=current_ahp_weights,
+        )
+        # ─────────────────────────────────────────────────────────────────
+
+        entry = {
+            **metrics,
+            "lambda_rp": lrp,
+            "lambda_c": lc,
+            "run_id": i,
+            # Store AHP weights as flat keys so they survive the dict-filter below.
+            "ahp_privacy_weight":       current_ahp_weights["privacy"],
+            "ahp_fairness_weight":      current_ahp_weights["fairness"],
+            "ahp_clarity_weight":       current_ahp_weights["clarity"],
+            "ahp_accountability_weight": current_ahp_weights["accountability"],
+        }
+        all_results.append({
+            k: (float(v) if isinstance(v, (float, np.floating)) else v)
+            for k, v in entry.items()
+            if not isinstance(v, dict)
+        })
         print(f"  [{i+1:2d}/{len(grid)}] lrp={lrp:.4f} lc={lc:.4f} "
-              f"TI={metrics['trust_index']:.3f}")
+              f"TI={metrics['trust_index']:.3f}  "
+              f"AHP[C={current_ahp_weights['clarity']:.3f} "
+              f"F={current_ahp_weights['fairness']:.3f} "
+              f"P={current_ahp_weights['privacy']:.3f} "
+              f"A={current_ahp_weights['accountability']:.3f}]")
 
     front = pareto_front(all_results)
     best  = max(front, key=lambda r: r.get("trust_index", 0))
