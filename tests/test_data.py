@@ -88,3 +88,108 @@ class TestAuditLogger:
         for i in range(5):
             logger.log(np.array([float(i)]), i % 2, 0.8)
         assert logger.count_entries() == 5
+
+
+# ── Network Fault Injection ─────────────────────────────────────────────────
+class TestNetworkFaultInjection:
+    """Unit tests for inject_network_faults in src/utils/reiot_simulator.py."""
+
+    def _make_dataset(self, n_samples=200, seed=42):
+        from src.utils.reiot_simulator import generate_full_reiot_dataset
+        return generate_full_reiot_dataset(
+            n_urban=3, n_periurban=3, n_rural=3,
+            n_windows_per_node=10, seed=seed,
+        )
+
+    def test_output_shape_unchanged(self):
+        """inject_network_faults must not change the array shape."""
+        from src.utils.reiot_simulator import inject_network_faults
+        d = self._make_dataset()
+        original_shape = d["X_train"].shape
+        d_fault = inject_network_faults(d, missing_rate=0.20, burst_size=5)
+        assert d_fault["X_train"].shape == original_shape
+
+    def test_nan_values_injected(self):
+        """At least some NaN values must be present after injection."""
+        from src.utils.reiot_simulator import inject_network_faults
+        d = self._make_dataset()
+        d_fault = inject_network_faults(d, missing_rate=0.20, burst_size=5, seed=7)
+        assert np.isnan(d_fault["X_train"]).any(), (
+            "Expected NaN values in X_train after inject_network_faults"
+        )
+
+    def test_missing_rate_respected(self):
+        """Fraction of corrupted windows should approximate missing_rate."""
+        from src.utils.reiot_simulator import inject_network_faults
+        d = self._make_dataset()
+        missing_rate = 0.30
+        d_fault = inject_network_faults(d, missing_rate=missing_rate, burst_size=5)
+        X = d_fault["X_train"]
+        corrupted = np.isnan(X).any(axis=1).sum()
+        n = len(X)
+        actual_rate = corrupted / n
+        assert abs(actual_rate - missing_rate) < 0.05, (
+            f"Expected ~{missing_rate:.0%} corrupted windows, got {actual_rate:.0%}"
+        )
+
+    def test_test_set_untouched_by_default(self):
+        """X_test must NOT be modified when apply_to_test=False (default)."""
+        from src.utils.reiot_simulator import inject_network_faults
+        d = self._make_dataset()
+        original_test = d["X_test"].copy()
+        d_fault = inject_network_faults(d, missing_rate=0.20, burst_size=5)
+        assert np.array_equal(d_fault["X_test"], original_test), (
+            "X_test should not be modified when apply_to_test=False"
+        )
+
+    def test_apply_to_test_corrupts_test_set(self):
+        """X_test must be modified when apply_to_test=True."""
+        from src.utils.reiot_simulator import inject_network_faults
+        d = self._make_dataset()
+        d_fault = inject_network_faults(d, missing_rate=0.20, burst_size=5,
+                                        apply_to_test=True)
+        assert np.isnan(d_fault["X_test"]).any(), (
+            "X_test should contain NaN when apply_to_test=True"
+        )
+
+    def test_zero_missing_rate_no_nans(self):
+        """missing_rate=0 must leave the data unchanged."""
+        from src.utils.reiot_simulator import inject_network_faults
+        d = self._make_dataset()
+        d_fault = inject_network_faults(d, missing_rate=0.0, burst_size=5)
+        assert not np.isnan(d_fault["X_train"]).any(), (
+            "No NaN values expected when missing_rate=0.0"
+        )
+
+    def test_invalid_missing_rate_raises(self):
+        """missing_rate outside [0, 1] must raise ValueError."""
+        from src.utils.reiot_simulator import inject_network_faults
+        d = self._make_dataset()
+        with pytest.raises(ValueError):
+            inject_network_faults(d, missing_rate=1.5)
+
+    def test_reproducibility(self):
+        """Same seed must produce identical fault patterns."""
+        from src.utils.reiot_simulator import inject_network_faults
+        d = self._make_dataset()
+        d1 = inject_network_faults(d, missing_rate=0.20, burst_size=5, seed=99)
+        d2 = inject_network_faults(d, missing_rate=0.20, burst_size=5, seed=99)
+        assert np.array_equal(
+            np.isnan(d1["X_train"]),
+            np.isnan(d2["X_train"]),
+        ), "Fault pattern should be identical with the same seed"
+
+    def test_nan_imputation_in_preprocessing(self):
+        """preprocess_reiot must safely handle NaN values from fault injection."""
+        from src.utils.reiot_simulator import inject_network_faults
+        from src.utils.preprocessing import preprocess_reiot
+        d = self._make_dataset()
+        d_fault = inject_network_faults(d, missing_rate=0.20, burst_size=5)
+        assert np.isnan(d_fault["X_train"]).any()
+        d_proc = preprocess_reiot(d_fault)
+        assert not np.isnan(d_proc["X_train"]).any(), (
+            "preprocess_reiot must eliminate all NaN values via imputation"
+        )
+        assert not np.isnan(d_proc["X_test"]).any(), (
+            "preprocess_reiot must also handle NaN-free X_test without errors"
+        )

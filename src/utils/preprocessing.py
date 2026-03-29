@@ -174,8 +174,35 @@ def preprocess_biometric(
     return dataset
 
 
+def _impute_nan_columns(X: np.ndarray) -> np.ndarray:
+    """Replace NaN values with column medians.
+
+    Used to sanitise RE-IoT feature arrays that may contain NaN values
+    after :func:`~src.utils.reiot_simulator.inject_network_faults`.
+    Columns that are entirely NaN are filled with 0.
+
+    Args:
+        X: Float feature matrix (n_samples, n_features).
+
+    Returns:
+        Copy of X with all NaN values replaced.
+    """
+    if not np.isnan(X).any():
+        return X
+    X_out = X.copy().astype(np.float64)
+    col_medians = np.nanmedian(X_out, axis=0)
+    col_medians = np.where(np.isnan(col_medians), 0.0, col_medians)
+    nan_rows, nan_cols = np.where(np.isnan(X_out))
+    X_out[nan_rows, nan_cols] = col_medians[nan_cols]
+    return X_out.astype(np.float32)
+
+
 def preprocess_reiot(dataset: Dict, seed: int = 42) -> Dict:
     """Preprocessing pipeline for RE-IoT datasets."""
+    # Impute NaN values (e.g., from inject_network_faults) before scaling.
+    for split in ("X_train", "X_test"):
+        if split in dataset and np.isnan(dataset[split]).any():
+            dataset[split] = _impute_nan_columns(dataset[split])
     scaler = StandardScaler()
     dataset["X_train"] = scaler.fit_transform(dataset["X_train"]).astype(np.float32)
     dataset["X_test"]  = scaler.transform(dataset["X_test"]).astype(np.float32)
