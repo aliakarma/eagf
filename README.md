@@ -1,160 +1,274 @@
 # EAGF: Ethical AI Governance Framework for Cybersecurity in Renewable Energy IoT Systems
 
-> A reproducible **research prototype** for jointly optimizing **fairness**, **privacy**, **clarity**, and **accountability** in AI-driven cybersecurity.
+> A reproducible research framework for jointly optimizing fairness, privacy, clarity, and accountability in AI-based cybersecurity.
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Research%20Prototype-orange)
+![Reproducibility](https://img.shields.io/badge/Reproducibility-10%20Seeds-success)
 
-## 📌 1. Title + Overview
-EAGF is a four-pillar governance framework for AI-enabled cybersecurity in renewable energy IoT systems.
+[![Open Demo in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/01_eagf_demo.ipynb)
+[![Open Statistical Analysis in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/02_statistical_analysis.ipynb)
+[![Open Fairness Study in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/03_reiot_fairness.ipynb)
 
-It integrates **transparency (clarity)**, **fairness**, **privacy**, and **accountability** into one training and evaluation workflow, then summarizes governance quality with a composite **Trust Index**.
+## Overview
 
-Motivation:
-- Production AI security models are typically optimized for predictive performance only.
-- Governance requirements are often checked late or not enforced quantitatively.
-- EAGF addresses this by making governance metrics first-class optimization and reporting targets.
+EAGF is a four-pillar governance framework that evaluates and optimizes:
 
-Key contributions:
-- **Four-pillar integration:** Unified operationalization of governance pillars in one reproducible pipeline.
-- **Multi-objective optimization:** Pareto trade-off analysis across competing objectives.
-- **Trust quantification:** Composite Trust Index for model-level governance comparison.
-- **Dual-domain validation:** Biometric tabular benchmark and RE-IoT case study.
+- Transparency (clarity)
+- Fairness
+- Privacy
+- Accountability
 
-## 📊 2. Key Results (Updated Automatically)
-Latest pipeline outputs are summarized from `results/biometric/main_results.csv`.
+The framework combines these pillars into a composite Trust Index for model comparison, model selection, and governance-aware deployment decisions.
 
-> **Key Takeaway:** EAGF achieves the highest Trust Index while improving fairness, privacy, and clarity versus baseline, with a moderate accuracy trade-off.
+## Latest Results (Updated)
 
-| Model | Accuracy (mean) | Recall Parity (mean) | Clarity (mean) | Privacy (mean) | Accountability (mean) | Trust Index (mean) |
+The table below reflects the most recent regenerated outputs from results/biometric/main_results.csv using seeds 42-51.
+
+| Model | Accuracy (mean +- std) | Recall Parity (mean +- std) | Clarity (mean +- std) | Privacy (mean +- std) | Accountability (mean +- std) | Trust Index (mean +- std) |
 |---|---:|---:|---:|---:|---:|---:|
-| Baseline | 0.8458 | 0.8360 | 0.9763 | 0.2250 | 0.3000 | 0.5843 |
-| EAGF | 0.8333 | 0.8669 | 0.9945 | 0.2614 | 0.9833 | 0.7765 |
-| Joint DP+Fair | 0.8125 | 0.8788 | 0.8679 | 0.2603 | 0.3000 | 0.5767 |
+| baseline | 0.8463 +- 0.0103 | 0.7864 +- 0.0205 | 0.9285 +- 0.0283 | 0.2430 +- 0.0088 | 0.3000 +- 0.0000 | 0.5645 +- 0.0072 |
+| eagf | 0.7863 +- 0.0252 | 0.9051 +- 0.0123 | 0.9609 +- 0.0214 | 0.2886 +- 0.0123 | 0.9833 +- 0.0000 | 0.7845 +- 0.0075 |
+| joint_dp_fair | 0.7646 +- 0.0313 | 0.9084 +- 0.0176 | 0.9515 +- 0.0163 | 0.2880 +- 0.0127 | 0.3000 +- 0.0000 | 0.6120 +- 0.0087 |
 
-Key insights:
-- EAGF delivers the highest Trust Index, improving from 0.5843 (Baseline) to 0.7765.
-- Joint DP+Fair yields the strongest recall parity, but accountability remains unchanged and Trust Index does not improve.
-- EAGF improves recall parity, clarity, privacy, and accountability with a moderate accuracy trade-off.
+Key observations:
 
-## 📈 3. Figures
-### Figure 1: Main Comparison Across Evaluation Metrics
+- EAGF reaches the highest Trust Index (0.7845), with a +0.2200 absolute gain vs baseline.
+- EAGF strongly improves governance pillars (fairness, privacy, clarity, accountability) at an expected accuracy trade-off.
+- joint_dp_fair improves fairness/privacy but does not achieve EAGF-level accountability or Trust Index.
+
+## Figures
+
+### Figure 1: Main Metric Comparison
 <p align="center">
   <img src="figures/figure3.png" alt="Main comparison of baseline and EAGF" width="95%" />
 </p>
-
-<p align="center"><em>Caption: Aggregate comparison of governance metrics and Trust Index between baseline and framework variants.</em></p>
 
 ### Figure 2: Pareto Front
 <p align="center">
   <img src="figures/pareto_front.png" alt="Pareto front" width="95%" />
 </p>
 
-<p align="center"><em>Caption: Pareto trade-off surface across fairness and clarity regularization settings in multi-objective tuning.</em></p>
-
 ### Figure 3: Trust Index vs Inference Latency
 <p align="center">
   <img src="figures/ti_vs_latency.png" alt="Trust Index vs inference latency" width="95%" />
 </p>
 
-<p align="center"><em>Caption: Per-seed deployment trade-off between governance quality (Trust Index) and inference-time cost.</em></p>
+## Quick Start
 
-## 🔁 4. Quick Start
 ```bash
-# Run full experiment
 python run_full_pipeline.py --config biometric_tuned_auto.yaml --seeds 42 43 44 45 46 47 48 49 50 51
 ```
 
-## ⚙️ 5. Installation
+## Installation
+
 ### Requirements
+
 - Python 3.9+
 - pip
-- Optional GPU acceleration via CUDA-compatible PyTorch build
+- Optional: CUDA-enabled PyTorch build for GPU acceleration
 
 ### Setup
+
 ```bash
 git clone https://github.com/aliakarma/eagf.git
 cd eagf
 python -m venv .venv
+
 # Windows
 .venv\Scripts\activate
+
 # Linux/macOS
 # source .venv/bin/activate
+
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-GPU note:
-- The default setup works on CPU.
-- For GPU, install a CUDA-enabled PyTorch wheel compatible with your driver/toolkit.
+## Reproducibility
 
-## 🔁 6. Reproducibility Guide (CRITICAL)
-### Full experiment
+### Full experiment (recommended)
+
 ```bash
 python run_full_pipeline.py --config biometric_tuned_auto.yaml --seeds 42 43 44 45 46 47 48 49 50 51
 ```
 
-What it does:
-- Runs complete biometric and RE-IoT workflows over 10 seeds.
-- Executes ablation, main comparison, joint baseline, Pareto search, and report generation.
+Expected key outputs:
 
-Expected outputs:
-- `results/final_report.txt`
-- `results/biometric/main_results.csv`
-- `results/biometric/ablation/ablation_summary.csv`
-- `figures/figure3.png`, `figures/pareto_front.png`, `figures/ti_vs_latency.png`
+- results/final_report.txt
+- results/biometric/main_results.csv
+- results/biometric/ablation/ablation_summary.csv
+- figures/figure3.png
+- figures/pareto_front.png
+- figures/ti_vs_latency.png
 
-### Fast mode (optional)
+### Fast smoke-test mode
+
 ```bash
 python run_full_pipeline.py --fast
 ```
 
-What it does:
-- Runs a one-seed reduced-time path for smoke testing and environment validation.
+## Notebooks (with Colab)
 
-Expected outputs:
-- Same output structure as full experiment, with reduced statistical strength.
+Use the links below to run notebooks directly in Google Colab.
 
-## 🗂️ 7. Project Structure
+1. 01_eagf_demo.ipynb
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/01_eagf_demo.ipynb)
+
+2. 02_statistical_analysis.ipynb
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/02_statistical_analysis.ipynb)
+
+3. 03_reiot_fairness.ipynb
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/03_reiot_fairness.ipynb)
+
+4. 04_pareto_front.ipynb
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/04_pareto_front.ipynb)
+
+5. 05_trust_index_sensitivity.ipynb
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/05_trust_index_sensitivity.ipynb)
+
+## Project Structure (Detailed)
+
 ```text
 eagf/
-├── src/              # Core modules
-├── configs/          # Experiment configs
-├── scripts/          # Utilities
-├── results/          # Outputs
-├── figures/          # Plots
+├── 🧩 configs/
+│   ├── biometric_default.yaml
+│   ├── biometric_tuned_auto.yaml
+│   ├── compliance_checklist.json
+│   ├── compliance_checklist.yaml
+│   ├── compliance_checklist_ics.json
+│   ├── compliance_checklist_ics.yaml
+│   ├── eagf_thresholds.yaml
+│   └── reiot_default.yaml
+├── 📊 data/
+│   ├── README.md
+│   ├── biometric/
+│   │   └── splits.json
+│   └── reiot/
+│       ├── groups_test.npy
+│       ├── groups_train.npy
+│       ├── metadata.json
+│       ├── X_test.npy
+│       ├── X_train.npy
+│       ├── y_test.npy
+│       └── y_train.npy
+├── 📚 docs/
+│   ├── metric_definitions.md
+│   ├── regulatory_mapping.md
+│   └── reproducibility.md
+├── 🖼️ figures/
+│   ├── figure3.png
+│   ├── pareto_front.png
+│   └── ti_vs_latency.png
+├── 📓 notebooks/
+│   ├── 01_eagf_demo.ipynb
+│   ├── 02_statistical_analysis.ipynb
+│   ├── 03_reiot_fairness.ipynb
+│   ├── 04_pareto_front.ipynb
+│   └── 05_trust_index_sensitivity.ipynb
+├── 🧪 results/
+│   ├── final_report.txt
+│   ├── summary_report.md
+│   ├── biometric/
+│   │   ├── main_results.csv
+│   │   ├── statistical_tests.json
+│   │   ├── summary.txt
+│   │   ├── ablation/
+│   │   │   ├── ablation_summary.csv
+│   │   │   ├── accountability/seed_42 ... seed_51/
+│   │   │   ├── baseline/seed_42 ... seed_51/
+│   │   │   ├── eagf/seed_42 ... seed_51/
+│   │   │   ├── fairness/seed_42 ... seed_51/
+│   │   │   ├── privacy/seed_42 ... seed_51/
+│   │   │   └── transparency/seed_42 ... seed_51/
+│   │   ├── baseline/seed_42 ... seed_51/
+│   │   ├── eagf/seed_42 ... seed_51/
+│   │   ├── joint_dp_fair/seed_42 ... seed_51/
+│   │   └── pareto/run_00 ... run_24/
+│   └── reiot/
+│       ├── node_class_results.csv
+│       ├── baseline/seed_42 ... seed_51/
+│       └── eagf/seed_42 ... seed_51/
+├── 🛠️ scripts/
+│   ├── run_ablation.sh
+│   ├── run_all.sh
+│   ├── run_baseline.sh
+│   ├── run_biometric.sh
+│   ├── run_pareto_search.sh
+│   ├── run_reiot.sh
+│   ├── run_scaling_experiment.py
+│   ├── sweep_three_stage.py
+│   └── verify_metrics.py
+├── 🧠 src/
+│   ├── baselines/
+│   │   ├── aif360_dp_pipeline.py
+│   │   └── joint_dp_fair_baseline.py
+│   ├── evaluation/
+│   │   ├── ablation.py
+│   │   ├── analysis_report.py
+│   │   ├── audit_logger.py
+│   │   ├── baseline.py
+│   │   ├── benchmark_suite.py
+│   │   ├── mia_attack.py
+│   │   ├── report_generator.py
+│   │   └── statistics.py
+│   ├── metrics/
+│   │   ├── accountability.py
+│   │   ├── clarity.py
+│   │   ├── fairness.py
+│   │   ├── privacy.py
+│   │   └── trust_index.py
+│   ├── training/
+│   │   ├── eagf_trainer.py
+│   │   ├── fairness_loss.py
+│   │   └── pareto_trainer.py
+│   └── utils/
+│       ├── ahp.py
+│       ├── data_loader.py
+│       ├── preprocessing.py
+│       ├── real_data_loader.py
+│       ├── reiot_simulator.py
+│       └── visualisation.py
+├── ✅ tests/
+│   ├── conftest.py
+│   ├── run_tests.py
+│   ├── test_data.py
+│   └── test_metrics.py
+├── run_eagf.py
+├── run_full_pipeline.py
+├── requirements.txt
+├── environment.yml
+├── setup.py
+└── README.md
 ```
 
-## 📁 8. Outputs
-| File/Directory | Description |
+## Core Outputs
+
+| Path | Description |
 |---|---|
-| `results/final_report.txt` | Consolidated run report with summary statistics and checks. |
-| `results/biometric/main_results.csv` | Baseline vs EAGF vs Joint DP+Fair aggregate metrics. |
-| `results/biometric/ablation/ablation_summary.csv` | M0-M5 ablation aggregates and confidence intervals. |
-| `figures/` | Generated visualization artifacts for manuscript/reporting. |
+| results/final_report.txt | Consolidated pipeline report and validation summary. |
+| results/biometric/main_results.csv | Main biometric benchmark aggregates for baseline, EAGF, and joint_dp_fair. |
+| results/biometric/statistical_tests.json | Statistical significance outputs for model comparisons. |
+| results/biometric/ablation/ablation_summary.csv | Multi-pillar ablation summary table. |
+| results/reiot/node_class_results.csv | RE-IoT node-class evaluation summary. |
+| figures/ | Publication-ready visual outputs. |
 
-## 🧠 9. Method Summary
-EAGF combines four components:
-- **Fairness:** parity-aware objective terms to reduce group disparity.
-- **Privacy:** DP-SGD dynamics plus MIA-based empirical privacy measurement.
-- **Clarity:** explanation-oriented structural constraints and post-hoc clarity scoring.
-- **Accountability:** audit, traceability, and compliance scoring from artifacts.
+## Method Summary
 
-Pareto optimization:
-- EAGF sweeps fairness and clarity regularization coefficients to identify governance-performance trade-offs.
+- Fairness: recall-parity aware regularization.
+- Privacy: DP-based training and privacy-oriented evaluation.
+- Clarity: explanation-oriented confidence/structure regularization and clarity metrics.
+- Accountability: auditability and compliance-informed reporting.
+- Trust Index: weighted integration of the four governance pillars.
 
-Trust Index:
-- High-level formulation: weighted aggregation of clarity, fairness, privacy, and accountability scores.
+## Citation
 
-## 🚀 10. Reproducibility & CI
-This repository includes GitHub Actions workflows for automated validation and experiment execution:
-- `.github/workflows/ci.yml`: multi-version tests plus fast smoke integration.
-- `.github/workflows/run_experiments.yml`: reproducibility-oriented fast pipeline execution and artifact upload.
-
-The full pipeline command above reproduces the published tables and figures from source code and configuration.
-
-## 📚 11. Citation
 If you use this repository, please cite the associated EAGF paper.
 
 ```bibtex

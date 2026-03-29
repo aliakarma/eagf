@@ -24,6 +24,7 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
     Returns:
         Scalar torch tensor penalty (without lambda multiplier).
     """
+    _ = rp_target  # Kept for API compatibility with existing call sites.
     unique_groups = torch.unique(group_labels)
     recalls = []
     y_true_f = y_true.float()
@@ -44,11 +45,9 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
         return torch.zeros((), device=y_true.device)
 
     recalls_t = torch.stack(recalls)
-    rp_gen = recalls_t.min() / (recalls_t.max() + 1e-12)
-    # Use L1 (absolute) penalty instead of squared hinge so the gradient is
-    # always active regardless of whether the target is already met.
-    # This ensures lambda_rp has a measurable effect across the Pareto sweep.
-    return torch.abs(torch.tensor(rp_target, device=y_true.device) - rp_gen)
+    # Stable fairness penalty: directly minimize recall disparity across groups.
+    rp_gap = torch.abs(recalls_t.max() - recalls_t.min())
+    return rp_gap
 
 
 def clarity_penalty_from_outputs(y_pred_proba, target_confidence=0.80):

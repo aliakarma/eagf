@@ -58,7 +58,6 @@ audit_logs/
 
 # ── Figures (reproduced by scripts) ──────────────────────
 # Keep committed: figures/figure1.png, figure2.png, figure3.png
-figures/pareto_front.png
 figures/reiot_fprp.png
 figures/sensitivity_*.png
 
