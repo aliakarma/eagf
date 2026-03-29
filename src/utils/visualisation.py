@@ -178,8 +178,9 @@ def plot_ti_vs_latency(results_dir, output_path, figsize=(7, 5), dpi=200):
         dpi: Output resolution.
     """
     variant_styles = {
-        "baseline": {"color": "#F08080", "marker": "o", "label": "Baseline (M0)"},
-        "eagf":     {"color": "#3CB371", "marker": "s", "label": "EAGF (M5)"},
+        "baseline":      {"color": "#F08080", "marker": "o", "label": "Baseline (M0)"},
+        "eagf":          {"color": "#3CB371", "marker": "s", "label": "EAGF (M5)"},
+        "joint_dp_fair": {"color": "#4A90D9", "marker": "^", "label": "Joint DP+Fair"},
     }
 
     fig, ax = plt.subplots(figsize=figsize)
