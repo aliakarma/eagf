@@ -219,10 +219,12 @@ def _train_joint(
         # This is a conservative approximation of the moments accountant
         # bound from Abadi et al. (2016), "Deep Learning with Differential
         # Privacy".  The formula ε ≈ √(2T) · q / σ (where T = total gradient
-        # steps, q = batch sampling rate, σ = noise multiplier) is a
-        # pessimistic (over-estimated) privacy bound — it may underestimate
-        # the *true* ε relative to the tighter RDP accountant used by Opacus,
-        # but provides a sound upper bound suitable for comparative evaluation.
+        # steps, q = batch sampling rate, σ = noise multiplier) is derived
+        # from the Gaussian mechanism bound and tends to *over-estimate* ε
+        # (i.e., it is privacy-conservative: it reports a *worse* privacy
+        # guarantee than the tighter RDP accountant used by Opacus would).
+        # This is intentionally safe — over-reporting ε means we never claim
+        # stronger privacy protection than is actually provided.
         try:
             n_train = len(train_loader.dataset)
             batch_size = train_loader.batch_size or 64
