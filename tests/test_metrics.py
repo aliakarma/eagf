@@ -243,3 +243,88 @@ class TestIntegration:
         assert d["y_train"].ndim == 1
         attack_rate = d["y_train"].mean()
         assert 0.02 <= attack_rate <= 0.15, f"Attack rate {attack_rate:.3f} out of expected range"
+
+
+# ── Dynamic AHP ────────────────────────────────────────────────────────────
+class TestDynamicAHP:
+    """Unit tests for calculate_dynamic_weights in src/utils/ahp.py."""
+
+    def _w(self, **kwargs):
+        from src.utils.ahp import calculate_dynamic_weights
+        return calculate_dynamic_weights(**kwargs)
+
+    def test_weights_sum_to_one_baseline(self):
+        """Weights must always normalise to 1.0."""
+        w = self._w(current_privacy_loss=0.0,
+                    current_fairness_loss=0.0,
+                    mia_attack_success_rate=0.5)
+        assert abs(sum(w.values()) - 1.0) < 1e-9
+
+    def test_mia_above_threshold_increases_privacy(self):
+        """MIA > 0.55 must increase privacy weight relative to no-threat case."""
+        w_safe  = self._w(current_privacy_loss=0.1,
+                          current_fairness_loss=0.0,
+                          mia_attack_success_rate=0.50)
+        w_threat = self._w(current_privacy_loss=0.1,
+                           current_fairness_loss=0.0,
+                           mia_attack_success_rate=0.60)
+        assert w_threat["privacy"] > w_safe["privacy"], (
+            f"privacy weight should rise under MIA threat: "
+            f"{w_threat['privacy']:.4f} vs {w_safe['privacy']:.4f}"
+        )
+
+    def test_high_fairness_loss_increases_fairness(self):
+        """High fairness loss must increase fairness weight."""
+        w_low  = self._w(current_privacy_loss=0.1,
+                         current_fairness_loss=0.05,
+                         mia_attack_success_rate=0.50)
+        w_high = self._w(current_privacy_loss=0.1,
+                         current_fairness_loss=0.20,
+                         mia_attack_success_rate=0.50)
+        assert w_high["fairness"] > w_low["fairness"], (
+            f"fairness weight should rise with high fairness loss: "
+            f"{w_high['fairness']:.4f} vs {w_low['fairness']:.4f}"
+        )
+
+    def test_weights_sum_to_one_under_both_threats(self):
+        """Weights still sum to 1 when both privacy and fairness rules fire."""
+        w = self._w(current_privacy_loss=0.5,
+                    current_fairness_loss=0.5,
+                    mia_attack_success_rate=0.70)
+        assert abs(sum(w.values()) - 1.0) < 1e-9
+
+    def test_ema_smoothing_reduces_jump(self):
+        """EMA smoothing must dampen abrupt weight swings."""
+        from src.utils.ahp import equal_weights
+        prev = equal_weights()
+        # Apply a maximum-threat update.
+        w_new = self._w(current_privacy_loss=1.0,
+                        current_fairness_loss=1.0,
+                        mia_attack_success_rate=1.0,
+                        previous_weights=prev)
+        # EMA α = 0.3, so the change must be ≤ 0.3 × range.
+        for k in prev:
+            delta = abs(w_new[k] - prev[k])
+            assert delta <= 0.30 + 1e-9, (
+                f"Weight '{k}' changed by {delta:.4f} > 0.30 — smoothing failed"
+            )
+
+    def test_reproducibility_across_seeds(self):
+        """Dynamic weights are deterministic (no random state)."""
+        w1 = self._w(current_privacy_loss=0.3,
+                     current_fairness_loss=0.2,
+                     mia_attack_success_rate=0.65)
+        w2 = self._w(current_privacy_loss=0.3,
+                     current_fairness_loss=0.2,
+                     mia_attack_success_rate=0.65)
+        for k in w1:
+            assert abs(w1[k] - w2[k]) < 1e-12, f"Weight '{k}' not deterministic"
+
+    def test_all_pillar_names_present(self):
+        """Returned dict must contain all four EAGF pillar keys."""
+        from src.utils.ahp import PILLAR_NAMES
+        w = self._w(current_privacy_loss=0.1,
+                    current_fairness_loss=0.1,
+                    mia_attack_success_rate=0.50)
+        for name in PILLAR_NAMES:
+            assert name in w, f"Pillar '{name}' missing from dynamic weights"

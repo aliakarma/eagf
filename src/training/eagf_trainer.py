@@ -36,6 +36,15 @@ from src.training.fairness_loss import clarity_penalty_from_outputs, recall_pari
 from src.utils.data_loader import load_adult_dataset, load_biometric_dataset, load_reiot_dataset
 from src.utils.preprocessing import preprocess_biometric, preprocess_reiot
 
+try:
+    import psutil as _psutil
+    _HAS_PSUTIL = True
+except ImportError:
+    _HAS_PSUTIL = False
+
+# Default assumed CPU power draw for energy estimation (Watts).
+_CPU_POWER_WATTS = 65.0
+
 SUPPORTED_MODELS = [
     "baseline",
     "standard",
@@ -249,6 +258,8 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
         target_delta = float(gov_cfg.get("dp_delta", 1e-5))
 
     model.train()
+    batch_fwd_times_ms: list[float] = []  # per-sample forward pass ms, collected per batch
+    t_train_start = time.perf_counter()
     for _epoch in range(epochs):
         for xb, yb, gb in train_loader:
             xb = xb.to(device)
@@ -256,7 +267,11 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
             gb = gb.to(device)
 
             optimizer.zero_grad(set_to_none=True)
+            t_fwd = time.perf_counter()
             logits = model(xb)
+            batch_fwd_times_ms.append(
+                (time.perf_counter() - t_fwd) * 1000.0 / max(len(xb), 1)
+            )
             probs = torch.softmax(logits, dim=1)
 
             l_task = F.cross_entropy(logits, yb)
@@ -288,10 +303,28 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
             loss.backward()
             optimizer.step()
 
+    t_train_elapsed = time.perf_counter() - t_train_start
+
     if privacy_engine is not None:
         epsilon_eff = float(privacy_engine.get_epsilon(delta=target_delta))
 
-    return model, epsilon_eff
+    # Collect per-process memory usage (RSS) after training.
+    if _HAS_PSUTIL:
+        mem_mb = float(_psutil.Process().memory_info().rss) / (1024.0 * 1024.0)
+    else:
+        mem_mb = 0.0
+
+    # Approximate energy: total training wall-clock time × assumed CPU wattage.
+    energy_j = t_train_elapsed * _CPU_POWER_WATTS
+
+    overhead = {
+        "train_fwd_ms_per_sample": float(np.mean(batch_fwd_times_ms)) if batch_fwd_times_ms else 0.0,
+        "train_wall_s": t_train_elapsed,
+        "memory_usage_mb": mem_mb,
+        "energy_overhead_joules": energy_j,
+    }
+
+    return model, epsilon_eff, overhead
 
 
 def _apply_group_thresholds(proba_pos, groups, thresholds, default_threshold=0.5):
@@ -454,10 +487,26 @@ def train_variant(variant, config, dataset, seed=42, output_dir=".", return_mode
 
     print(f"    Training {variant} (seed={seed})...", end=" ", flush=True)
     t0 = time.time()
-    model, epsilon_eff = _train_torch_model(
+    model, epsilon_eff, train_overhead = _train_torch_model(
         variant, config, X_train, y_train, groups_train, X_val, y_val, device=device, seed=seed
     )
     model_adapter = ModelAdapter(model, device=device)
+
+    # ── Inference overhead measurement ────────────────────────────────────
+    t_infer_start = time.perf_counter()
+    _proba_sample = model_adapter.predict_proba(X_test)
+    t_infer_elapsed = time.perf_counter() - t_infer_start
+    # Per-sample inference time in milliseconds.
+    infer_ms = (t_infer_elapsed * 1000.0) / max(len(X_test), 1)
+
+    # RSS memory at inference time.
+    if _HAS_PSUTIL:
+        infer_mem_mb = float(_psutil.Process().memory_info().rss) / (1024.0 * 1024.0)
+    else:
+        infer_mem_mb = train_overhead["memory_usage_mb"]
+
+    # Energy: inference time × CPU wattage.
+    infer_energy_j = t_infer_elapsed * _CPU_POWER_WATTS
 
     y_pred_test_override = None
     if vset["use_group_threshold"]:
@@ -478,7 +527,14 @@ def train_variant(variant, config, dataset, seed=42, output_dir=".", return_mode
         pred_labels = y_pred_test_override if y_pred_test_override is not None else pred_proba.argmax(axis=1)
         confidences = pred_proba.max(axis=1)
         for i in range(len(pred_labels)):
-            logger.log(X_test[i], int(pred_labels[i]), float(confidences[i]))
+            logger.log(
+                X_test[i],
+                int(pred_labels[i]),
+                float(confidences[i]),
+                inference_time_ms=infer_ms,
+                memory_usage_mb=infer_mem_mb,
+                energy_overhead_joules=infer_energy_j,
+            )
 
     metrics = _compute_all_metrics(
         model_adapter,
@@ -498,6 +554,11 @@ def train_variant(variant, config, dataset, seed=42, output_dir=".", return_mode
         y_pred_test_override=y_pred_test_override,
         accountability_enabled=vset["use_accountability"],
     )
+
+    # ── Attach overhead metrics to the returned metrics dict ──────────────
+    metrics["inference_time_ms"] = round(infer_ms, 4)
+    metrics["memory_usage_mb"] = round(infer_mem_mb, 2)
+    metrics["energy_overhead_joules"] = round(infer_energy_j, 4)
 
     elapsed = time.time() - t0
     print(f"done ({elapsed:.1f}s) TI={metrics['trust_index']:.3f}")

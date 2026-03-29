@@ -115,6 +115,17 @@ for SEED in ${SEEDS}; do
         2>&1 | tee ${LOG_DIR}/biometric_eagf_seed${SEED}.log"
 done
 
+# ── Step 2b: Joint DP+Fair strong baseline ────────────────
+echo ""
+echo "[Step 2b] Running Joint DP+Fair strong baseline (multi-seed)..."
+run "python run_eagf.py \
+      --baseline joint_dp_fair \
+      --seeds    ${SEEDS// / } \
+      --skip-pareto \
+      --skip-reiot \
+      --output   ${OUTPUT_DIR} \
+      2>&1 | tee ${LOG_DIR}/joint_dp_fair.log"
+
 # ── Step 3: Ablation study (M0–M5) ───────────────────────
 if [ "$SKIP_ABLATION" = false ]; then
   echo ""

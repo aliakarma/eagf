@@ -11,7 +11,8 @@ try:
 except ImportError:
     HAS_PANDAS = False
 
-METRICS = ["accuracy", "recall_parity", "clarity", "privacy", "accountability", "trust_index"]
+METRICS = ["accuracy", "recall_parity", "clarity", "privacy", "accountability", "trust_index",
+           "inference_time_ms", "memory_usage_mb", "energy_overhead_joules"]
 
 
 def _write_csv(rows, path):
@@ -31,9 +32,11 @@ def _write_csv(rows, path):
 
 
 def aggregate_results(results_dir, seeds, output_path, fairness_criterion="recall_parity"):
-    """Aggregate baseline and EAGF results across seeds."""
+    """Aggregate baseline, EAGF, and any optional strong-baseline results across seeds."""
+    # Discover which variants have results present.
+    candidate_variants = ["baseline", "eagf", "joint_dp_fair"]
     rows = []
-    for variant in ("baseline", "eagf"):
+    for variant in candidate_variants:
         vals = {m: [] for m in METRICS}
         for seed in seeds:
             rp = os.path.join(results_dir, variant, f"seed_{seed}", "results.json")
