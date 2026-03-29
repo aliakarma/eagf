@@ -57,6 +57,9 @@ def parse_args():
                    help="Load real Edge-IIoT dataset instead of synthetic demo data")
     p.add_argument("--real_data_path", default=None,
                    help="Path to Edge-IIoT CSV file (required when --use_real_data is set)")
+    p.add_argument("--baseline", default=None, choices=["joint_dp_fair"],
+                   help="Run an additional strong baseline alongside EAGF. "
+                        "Supported: joint_dp_fair")
     return p.parse_args()
 
 
@@ -221,6 +224,28 @@ def run_reiot_experiment(output_dir, seeds):
         fairness_criterion="fprp",
     )
     return node_csv
+
+
+def run_joint_dp_fair_baseline(config, dataset, seeds, output_dir):
+    """Train and evaluate the JointDPFair strong baseline across all seeds.
+
+    Results are written to ``<output_dir>/joint_dp_fair/seed_<N>/results.json``
+    and also appended to ``<output_dir>/main_results.csv`` so the model appears
+    in comparison plots and CSV outputs without any other changes.
+    """
+    from src.baselines.joint_dp_fair_baseline import train_joint_dp_fair
+    from src.evaluation.baseline import aggregate_results
+
+    banner("STEP 3c — Joint DP+Fair Strong Baseline")
+    for seed in seeds:
+        vdir = os.path.join(output_dir, "joint_dp_fair", f"seed_{seed}")
+        train_joint_dp_fair(config, dataset.copy(), seed=seed, output_dir=vdir)
+
+    # Re-aggregate main_results.csv to include the new baseline.
+    main_csv = os.path.join(output_dir, "main_results.csv")
+    aggregate_results(output_dir, seeds, main_csv)
+    print(f"  joint_dp_fair results → {os.path.join(output_dir, 'joint_dp_fair')}")
+    return main_csv
 
 
 def generate_figures(output_dir):
@@ -526,6 +551,10 @@ def main():
 
     # ── Step 3b: Write fresh summary from seed JSONs ──────────────────────
     write_summary(bio_out, args.seeds)
+
+    # ── Step 3c: Optional strong baseline ────────────────────────────────
+    if args.baseline == "joint_dp_fair":
+        run_joint_dp_fair_baseline(config, dataset, args.seeds, bio_out)
 
     # ── Step 4: Pareto search (optional) ─────────────────────────────────
     pareto_result = None
