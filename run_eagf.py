@@ -47,6 +47,8 @@ def parse_args():
                    help="Fast mode: 1 seed, 20 epochs (for testing)")
     p.add_argument("--seeds",      nargs="+", type=int, default=[42, 123, 456])
     p.add_argument("--epochs",     type=int,  default=50)
+    p.add_argument("--config",     default="configs/biometric_default.yaml",
+                   help="Path to biometric YAML config file")
     p.add_argument("--output",     default="results")
     p.add_argument("--data-root",  default=None,
                    help="EFR dataset root; uses synthetic demo if not set")
@@ -511,7 +513,7 @@ def main():
 
     # ── Step 1: Configuration & Data ──────────────────────────────────────
     banner("STEP 1 — Configuration and Data")
-    with open("configs/biometric_default.yaml") as f:
+    with open(args.config) as f:
         config = yaml.safe_load(f)
     config["training"]["epochs"] = args.epochs
 
