@@ -99,18 +99,20 @@ def generate_demo_biometric(n_samples=2000, n_features=20, n_classes=2, seed=42)
     flip_mask = rng.rand(len(y_all)) < flip_prob
     y_all[flip_mask] = 1 - y_all[flip_mask]
 
-    scaler = StandardScaler()
-    X_all = scaler.fit_transform(X_all).astype(np.float32)
-
     idx = np.arange(len(X_all))
     tr_idx, tmp_idx = train_test_split(idx, test_size=0.30, stratify=y_all, random_state=seed)
     va_idx, te_idx  = train_test_split(tmp_idx, test_size=0.50,
                                         stratify=y_all[tmp_idx], random_state=seed)
 
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_all[tr_idx]).astype(np.float32)
+    X_val = scaler.transform(X_all[va_idx]).astype(np.float32)
+    X_test = scaler.transform(X_all[te_idx]).astype(np.float32)
+
     return {
-        "X_train": X_all[tr_idx], "y_train": y_all[tr_idx], "groups_train": g_all[tr_idx],
-        "X_val":   X_all[va_idx], "y_val":   y_all[va_idx], "groups_val":   g_all[va_idx],
-        "X_test":  X_all[te_idx], "y_test":  y_all[te_idx], "groups_test":  g_all[te_idx],
+        "X_train": X_train, "y_train": y_all[tr_idx], "groups_train": g_all[tr_idx],
+        "X_val":   X_val, "y_val":   y_all[va_idx], "groups_val":   g_all[va_idx],
+        "X_test":  X_test, "y_test":  y_all[te_idx], "groups_test":  g_all[te_idx],
         "n_classes": 2, "n_features": n_features, "scaler": scaler,
         "source": "demo_synthetic",
         "splits": {"train": tr_idx.tolist(), "val": va_idx.tolist(), "test": te_idx.tolist()},
@@ -171,9 +173,6 @@ def load_adult_dataset(seed=42, test_size=0.15, val_size=0.15):
     X = X_df.astype(np.float32).values
     y = (y_raw.values == ">50K").astype(int)
 
-    scaler = StandardScaler()
-    X = scaler.fit_transform(X).astype(np.float32)
-
     idx = np.arange(len(X))
     tr_idx, tmp_idx = train_test_split(idx, test_size=(test_size + val_size), stratify=y, random_state=seed)
     val_ratio_in_tmp = val_size / (test_size + val_size)
@@ -184,14 +183,19 @@ def load_adult_dataset(seed=42, test_size=0.15, val_size=0.15):
         random_state=seed,
     )
 
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X[tr_idx]).astype(np.float32)
+    X_val = scaler.transform(X[va_idx]).astype(np.float32)
+    X_test = scaler.transform(X[te_idx]).astype(np.float32)
+
     return {
-        "X_train": X[tr_idx],
+        "X_train": X_train,
         "y_train": y[tr_idx],
         "groups_train": groups[tr_idx],
-        "X_val": X[va_idx],
+        "X_val": X_val,
         "y_val": y[va_idx],
         "groups_val": groups[va_idx],
-        "X_test": X[te_idx],
+        "X_test": X_test,
         "y_test": y[te_idx],
         "groups_test": groups[te_idx],
         "n_classes": 2,
