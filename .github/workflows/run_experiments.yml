@@ -1,0 +1,56 @@
+name: Run Experiments
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  run-experiments:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas scipy scikit-learn matplotlib pyyaml tqdm
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install opacus
+
+      - name: Run full pipeline (fast mode)
+        run: python -W ignore run_full_pipeline.py --fast --skip_pareto --skip_reiot
+
+      - name: Upload results report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-report
+          path: results/final_report.txt
+
+      - name: Upload main results CSV
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: main-results-csv
+          path: results/biometric/main_results.csv
+
+      - name: Upload figures
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: figures
+          path: figures/

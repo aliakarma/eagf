@@ -452,6 +452,33 @@ Expected outputs:
 
 ---
 
+<!-- PIPELINE_RESULTS_START -->
+
+# 📊 Latest Experimental Results
+
+*Auto-generated on 2026-03-29 04:44 UTC using seeds [42].*
+
+## Results Table
+
+| Model | Accuracy | Recall Parity | Clarity (C) | Privacy (P) | Accountability (A) | Trust Index (TI) |
+|---|---|---|---|---|---|---|
+| baseline | 0.8458 | 0.8360 | 0.9763 | 0.2250 | 0.3000 | 0.5843 |
+| eagf | 0.8333 | 0.8669 | 0.9945 | 0.2614 | 0.9833 | 0.7765 |
+| joint_dp_fair | 0.8125 | 0.8788 | 0.8679 | 0.2603 | 0.3000 | 0.5767 |
+
+## Key Observations
+
+- EAGF improves Trust Index by **+0.1922** (32.89%) relative to baseline.
+- Accuracy change: **-0.0125** (acceptable trade-off for governance benefits).
+- Full governance (EAGF) outperforms all single-pillar ablations on TI.
+
+## Reports and Figures
+
+- 📄 [Detailed report](results/final_report.txt)
+- 📁 [Figures](figures/)
+
+<!-- PIPELINE_RESULTS_END -->
+
 ## Results
 
 All reported metrics are generated at runtime from actual model outputs. To reproduce results, run the pipeline and inspect generated CSV/JSON artifacts in `results/`.
