@@ -56,6 +56,8 @@ def parse_args():
     p.add_argument("--seeds", nargs="+", type=int, default=None,
                    help="Override seed list (default: 42–51)")
     p.add_argument("--epochs", type=int, default=50)
+    p.add_argument("--config", default="configs/biometric_default.yaml",
+                   help="Path to biometric YAML config file passed to run_eagf.py")
     p.add_argument("--use_real_data", action="store_true",
                    help="Also run a real-data pass (requires --real_data_path)")
     p.add_argument("--real_data_path", default=None)
@@ -137,6 +139,7 @@ def run_experiments(seeds, epochs, args):
         sys.executable, "run_eagf.py",
         "--seeds", *[str(s) for s in seeds],
         "--epochs", str(epochs),
+        "--config", args.config,
         "--output", args.output,
         "--baseline", "joint_dp_fair",
     ]
@@ -474,7 +477,7 @@ def generate_final_report(output_dir, figures_dir, seeds, report_path):
 
     # Write report
     os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
     print(f"  Report → {report_path}")
     return report_path
@@ -570,7 +573,7 @@ def update_readme(output_dir, seeds):
 
     new_section = "\n".join(md_lines)
 
-    with open(readme_path) as f:
+    with open(readme_path, encoding="utf-8") as f:
         content = f.read()
 
     # Replace existing section or append before ## Results
@@ -587,7 +590,7 @@ def update_readme(output_dir, seeds):
         content = content + "\n\n" + new_section + "\n"
         print("  Appended results section to README.md")
 
-    with open(readme_path, "w") as f:
+    with open(readme_path, "w", encoding="utf-8") as f:
         f.write(content)
     print(f"  README.md updated.")
 
