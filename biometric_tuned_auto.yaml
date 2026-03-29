@@ -1,0 +1,79 @@
+# Auto-tuned profile (balanced) for full pipeline runs
+
+# --- Dataset --------------------------------------------------
+data:
+  name: efr
+  root: data/biometric/efr_processed/
+  splits_file: data/biometric/splits.json
+  split_ratios: [0.70, 0.15, 0.15]
+  image_size: [224, 224]
+  protected_groups: [gender, skin_tone]
+  num_workers: 4
+
+# --- Model architecture ---------------------------------------
+model:
+  architecture: tabular_mlp
+  pretrained: false
+  num_classes: null
+
+# --- Training -------------------------------------------------
+training:
+  epochs: 50
+  batch_size: 64
+  optimizer: adamw
+  lr: 1.0e-4
+  weight_decay: 1.0e-2
+  lr_scheduler: cosine
+  warmup_epochs: 5
+  seed: 42
+
+# --- Governance: Differential Privacy (Pillar 3) -------------
+governance:
+  dp_enabled: true
+  dp_epsilon: 2.6
+  dp_delta: 1.0e-5
+  dp_max_grad_norm: 0.9
+  dp_noise_multiplier: null
+
+  lambda_rp: 0.20
+  lambda_c: 0.20
+
+  shap_explainer: deep
+  shap_top_k: 5
+  shap_tau_pct: 0.01
+  shap_sample_size: 260
+
+  pareto_grid_size: 5
+  pareto_lambda_range: [1.0e-3, 1.0e0]
+
+# --- Governance: Stage-1 Thresholds --------------------------
+thresholds:
+  min_clarity: 0.80
+  min_recall_parity: 0.95
+  min_privacy: 0.80
+  min_accountability: 0.85
+
+# --- Fairness criterion selection ----------------------------
+fairness:
+  criterion: recall_parity
+  reference_group: male_light
+
+# --- Evaluation ----------------------------------------------
+evaluation:
+  bootstrap_n: 1000
+  mia_shadow_models: 4
+  mia_epochs: 20
+
+# --- Accountability ------------------------------------------
+accountability:
+  audit_log_path: results/biometric/audit_log.jsonl
+  sign_key_path: configs/audit_key.pem
+  compliance_checklist: configs/compliance_checklist.yaml
+  trace_window_days: 90
+
+# --- Logging & output ----------------------------------------
+output:
+  checkpoint_dir: results/biometric/
+  mlflow_tracking_uri: results/biometric/mlruns/
+  log_interval_steps: 50
+  save_best_metric: trust_index
