@@ -81,3 +81,8 @@ configs/audit_key.*
 .coverage
 htmlcov/
 coverage.xml
+
+# Prevent cloned sub-repos from being committed
+notebooks/eagf/
+eagf/
+figures/notebook*.png
