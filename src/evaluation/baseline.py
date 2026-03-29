@@ -11,7 +11,8 @@ try:
 except ImportError:
     HAS_PANDAS = False
 
-METRICS = ["accuracy", "recall_parity", "clarity", "privacy", "accountability", "trust_index"]
+METRICS = ["accuracy", "recall_parity", "clarity", "privacy", "accountability", "trust_index",
+           "inference_time_ms", "memory_usage_mb", "energy_overhead_joules"]
 
 
 def _write_csv(rows, path):

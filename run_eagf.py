@@ -226,7 +226,7 @@ def run_reiot_experiment(output_dir, seeds):
 def generate_figures(output_dir):
     """Generate all paper figures."""
     from src.utils.visualisation import (
-        plot_ablation_bar, plot_pareto_front, plot_fprp_bar,
+        plot_ablation_bar, plot_pareto_front, plot_fprp_bar, plot_ti_vs_latency,
     )
 
     banner("STEP 6 — Figure Generation")
@@ -243,6 +243,11 @@ def generate_figures(output_dir):
     reiot_csv = os.path.join(output_dir, "reiot", "node_class_results.csv")
     if os.path.exists(reiot_csv):
         plot_fprp_bar(reiot_csv, "figures/reiot_fprp.png")
+
+    plot_ti_vs_latency(
+        os.path.join(output_dir, "biometric"),
+        "figures/ti_vs_latency.png",
+    )
 
 
 def print_summary(output_dir):
