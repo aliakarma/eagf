@@ -53,6 +53,13 @@ def parse_args():
     p.add_argument("--skip-reiot", action="store_true")
     p.add_argument("--skip-pareto", action="store_true",
                    help="Skip 25-run Pareto grid (saves ~5x time)")
+    p.add_argument("--use_real_data", action="store_true",
+                   help="Load real Edge-IIoT dataset instead of synthetic demo data")
+    p.add_argument("--real_data_path", default=None,
+                   help="Path to Edge-IIoT CSV file (required when --use_real_data is set)")
+    p.add_argument("--baseline", default=None, choices=["joint_dp_fair"],
+                   help="Run an additional strong baseline alongside EAGF. "
+                        "Supported: joint_dp_fair")
     return p.parse_args()
 
 
@@ -219,10 +226,32 @@ def run_reiot_experiment(output_dir, seeds):
     return node_csv
 
 
+def run_joint_dp_fair_baseline(config, dataset, seeds, output_dir):
+    """Train and evaluate the JointDPFair strong baseline across all seeds.
+
+    Results are written to ``<output_dir>/joint_dp_fair/seed_<N>/results.json``
+    and also appended to ``<output_dir>/main_results.csv`` so the model appears
+    in comparison plots and CSV outputs without any other changes.
+    """
+    from src.baselines.joint_dp_fair_baseline import train_joint_dp_fair
+    from src.evaluation.baseline import aggregate_results
+
+    banner("STEP 3c — Joint DP+Fair Strong Baseline")
+    for seed in seeds:
+        vdir = os.path.join(output_dir, "joint_dp_fair", f"seed_{seed}")
+        train_joint_dp_fair(config, dataset.copy(), seed=seed, output_dir=vdir)
+
+    # Re-aggregate main_results.csv to include the new baseline.
+    main_csv = os.path.join(output_dir, "main_results.csv")
+    aggregate_results(output_dir, seeds, main_csv)
+    print(f"  joint_dp_fair results → {os.path.join(output_dir, 'joint_dp_fair')}")
+    return main_csv
+
+
 def generate_figures(output_dir):
     """Generate all paper figures."""
     from src.utils.visualisation import (
-        plot_ablation_bar, plot_pareto_front, plot_fprp_bar,
+        plot_ablation_bar, plot_pareto_front, plot_fprp_bar, plot_ti_vs_latency,
     )
 
     banner("STEP 6 — Figure Generation")
@@ -239,6 +268,11 @@ def generate_figures(output_dir):
     reiot_csv = os.path.join(output_dir, "reiot", "node_class_results.csv")
     if os.path.exists(reiot_csv):
         plot_fprp_bar(reiot_csv, "figures/reiot_fprp.png")
+
+    plot_ti_vs_latency(
+        os.path.join(output_dir, "biometric"),
+        "figures/ti_vs_latency.png",
+    )
 
 
 def print_summary(output_dir):
@@ -481,13 +515,27 @@ def main():
         config = yaml.safe_load(f)
     config["training"]["epochs"] = args.epochs
 
-    from src.utils.data_loader import load_biometric_dataset
-    demo = (args.data_root is None)
-    data_root = args.data_root or "data/biometric/efr_processed"
-    print(f"  {'Demo synthetic' if demo else 'EFR'} dataset...")
-    dataset = load_biometric_dataset(
-        data_root=data_root, demo=demo, n_samples=1600, seed=args.seeds[0],
-    )
+    if args.use_real_data:
+        from src.utils.real_data_loader import RealREIoTDataLoader
+        real_data_path = args.real_data_path
+        if not real_data_path:
+            raise ValueError(
+                "--real_data_path must be specified when using --use_real_data.\n"
+                "Download the Edge-IIoT dataset and pass its CSV path via --real_data_path."
+            )
+        print(f"  Loading real Edge-IIoT dataset from: {real_data_path}")
+        loader = RealREIoTDataLoader(seed=args.seeds[0])
+        loader.load_edge_iiot_data(real_data_path)
+        dataset = loader.to_dataset_dict()
+        print(f"  Real Edge-IIoT dataset loaded (source={dataset['source']})")
+    else:
+        from src.utils.data_loader import load_biometric_dataset
+        demo = (args.data_root is None)
+        data_root = args.data_root or "data/biometric/efr_processed"
+        print(f"  {'Demo synthetic' if demo else 'EFR'} dataset...")
+        dataset = load_biometric_dataset(
+            data_root=data_root, demo=demo, n_samples=1600, seed=args.seeds[0],
+        )
     print(f"  Train:{len(dataset['y_train'])} "
           f"Val:{len(dataset['y_val'])} Test:{len(dataset['y_test'])}")
 
@@ -503,6 +551,10 @@ def main():
 
     # ── Step 3b: Write fresh summary from seed JSONs ──────────────────────
     write_summary(bio_out, args.seeds)
+
+    # ── Step 3c: Optional strong baseline ────────────────────────────────
+    if args.baseline == "joint_dp_fair":
+        run_joint_dp_fair_baseline(config, dataset, args.seeds, bio_out)
 
     # ── Step 4: Pareto search (optional) ─────────────────────────────────
     pareto_result = None

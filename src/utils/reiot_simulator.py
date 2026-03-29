@@ -92,6 +92,106 @@ ATTACK_INJECTORS = {
 }
 
 
+def inject_network_faults(
+    data: Dict,
+    missing_rate: float = 0.20,
+    burst_size: int = 5,
+    seed: int = 42,
+    apply_to_test: bool = False,
+) -> Dict:
+    """Inject simulated network faults (burst packet loss) into RE-IoT telemetry.
+
+    Randomly selects ``missing_rate`` fraction of time windows and replaces
+    ``burst_size`` consecutive time steps with ``NaN``, simulating real IoT
+    packet loss or sensor dropout in the field.
+
+    Args:
+        data: Dataset dict from :func:`generate_full_reiot_dataset` or a raw
+              ``np.ndarray``.  When a dict is supplied, ``X_train`` (and
+              optionally ``X_test``) must have shape
+              ``(n_samples, seq_len * n_features)`` — the flattened window
+              format used throughout the EAGF pipeline.
+        missing_rate: Fraction of windows to corrupt with burst packet loss.
+                      Must be in [0, 1].  Default: 0.20.
+        burst_size: Number of consecutive time steps to set to NaN per fault
+                    event.  Default: 5.
+        seed: Random seed for reproducibility.
+        apply_to_test: If ``True``, also corrupt ``X_test`` (useful for
+                       evaluating model robustness under inference-time faults).
+
+    Returns:
+        Modified dataset dict (or array) with NaN values in corrupted windows.
+        All other keys are returned unchanged (deep-copied for safety).
+
+    Raises:
+        ValueError: If ``missing_rate`` is not in [0, 1].
+    """
+    if not (0.0 <= missing_rate <= 1.0):
+        raise ValueError(
+            f"missing_rate must be in [0, 1], got {missing_rate}."
+        )
+
+    rng = np.random.RandomState(seed)
+
+    # Accept either a raw array or a dataset dict.
+    if isinstance(data, np.ndarray):
+        return _apply_burst_faults(data, missing_rate, burst_size, rng)
+
+    result = {
+        k: (v.copy() if isinstance(v, np.ndarray) else v)
+        for k, v in data.items()
+    }
+    splits = ["X_train"] + (["X_test"] if apply_to_test else [])
+    for split in splits:
+        if split not in result or result[split] is None:
+            continue
+        result[split] = _apply_burst_faults(
+            result[split], missing_rate, burst_size, rng
+        )
+    return result
+
+
+def _apply_burst_faults(
+    X: np.ndarray,
+    missing_rate: float,
+    burst_size: int,
+    rng: np.random.RandomState,
+) -> np.ndarray:
+    """Apply burst-fault NaN injection to a 2-D feature array.
+
+    Args:
+        X: Float array of shape ``(n_samples, n_flat)`` where
+           ``n_flat = seq_len * n_features``.
+        missing_rate: Fraction of rows to corrupt.
+        burst_size: Consecutive time steps to zero out per fault.
+        rng: Seeded random state.
+
+    Returns:
+        Float32 array with NaN values injected into selected windows.
+    """
+    n_samples, n_flat = X.shape
+    # Infer seq_len; fall back to treating whole row as single time step.
+    seq_len = max(n_flat // N_FEATURES, 1)
+    effective_burst = min(burst_size, seq_len)
+
+    n_fault = int(np.round(n_samples * missing_rate))
+    if n_fault == 0:
+        return X.astype(np.float32)
+
+    fault_indices = rng.choice(n_samples, size=n_fault, replace=False)
+
+    # Work in float64 so NaN is representable; reshape to (N, T, F).
+    X_out = X.astype(np.float64)
+    X_3d = X_out.reshape(n_samples, seq_len, N_FEATURES)
+
+    for idx in fault_indices:
+        max_start = max(seq_len - effective_burst, 0)
+        t_start = rng.randint(0, max_start + 1)
+        X_3d[idx, t_start: t_start + effective_burst, :] = np.nan
+
+    return X_3d.reshape(n_samples, n_flat).astype(np.float32)
+
+
 def generate_node_dataset(
     node_class: str,
     n_nodes: int,

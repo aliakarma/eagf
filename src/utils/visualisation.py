@@ -2,7 +2,7 @@
 src/utils/visualisation.py — EAGF Figure Generation
 Produces Figure 3 (ablation bar chart), Pareto-front plot, FPRP comparison.
 """
-import argparse, json, os
+import argparse, glob, json, os
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -163,6 +163,68 @@ def plot_fprp_bar(results_csv, output_path, figsize=(8, 4), dpi=200):
     plt.savefig(output_path, dpi=dpi, bbox_inches="tight")
     plt.close()
     print(f"FPRP plot → {output_path}")
+
+
+def plot_ti_vs_latency(results_dir, output_path, figsize=(7, 5), dpi=200):
+    """Scatter plot of Trust Index vs Inference Latency (ms) per seed.
+
+    Reads ``results.json`` files from ``<results_dir>/{baseline,eagf}/seed_*/``
+    and plots each seed as a point coloured by variant.
+
+    Args:
+        results_dir: Directory containing ``baseline/`` and ``eagf/`` sub-folders.
+        output_path: Path to save the PNG figure.
+        figsize: Matplotlib figure size.
+        dpi: Output resolution.
+    """
+    variant_styles = {
+        "baseline":      {"color": "#F08080", "marker": "o", "label": "Baseline (M0)"},
+        "eagf":          {"color": "#3CB371", "marker": "s", "label": "EAGF (M5)"},
+        "joint_dp_fair": {"color": "#4A90D9", "marker": "^", "label": "Joint DP+Fair"},
+    }
+
+    fig, ax = plt.subplots(figsize=figsize)
+    any_data = False
+
+    for variant, style in variant_styles.items():
+        pattern = os.path.join(results_dir, variant, "seed_*", "results.json")
+        paths = sorted(glob.glob(pattern))
+        tis, latencies = [], []
+        for p in paths:
+            try:
+                with open(p) as f:
+                    r = json.load(f)
+                ti = r.get("trust_index")
+                lat = r.get("inference_time_ms")
+                if ti is not None and lat is not None:
+                    tis.append(float(ti))
+                    latencies.append(float(lat))
+            except Exception:
+                continue
+        if tis:
+            ax.scatter(latencies, tis,
+                       c=style["color"], marker=style["marker"],
+                       s=90, label=style["label"], zorder=3, edgecolors="white", linewidths=0.6)
+            any_data = True
+
+    if not any_data:
+        print(f"  Warning: no TI/latency data found in {results_dir}; skipping plot.")
+        plt.close()
+        return
+
+    ax.set_xlabel("Inference Latency (ms / sample)", fontsize=11)
+    ax.set_ylabel("Trust Index (TI)", fontsize=11)
+    ax.set_title("Trust Index vs Inference Latency", fontsize=11, fontweight="bold")
+    ax.set_ylim(0, 1.05)
+    ax.legend(fontsize=9)
+    ax.grid(alpha=0.25)
+    ax.spines[["top", "right"]].set_visible(False)
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=dpi, bbox_inches="tight")
+    plt.close()
+    print(f"TI vs Latency plot → {output_path}")
 
 
 def parse_args():
