@@ -775,12 +775,17 @@ def generate_figures(output_dir, figures_dir):
 def main():
     args = parse_args()
 
-    # When --real_dataset is specified, override the config to reiot_real.yaml
-    # unless the user has explicitly supplied a different config.
+    # When --real_dataset is specified, FORCE config to reiot_real.yaml
+    # and FORCE use_real_data=True regardless of other flags.
     real_dataset = getattr(args, "real_dataset", None)
     _real_config = "configs/reiot_real.yaml"
     _default_config = "configs/reiot_default.yaml"
-    if real_dataset and args.config == _default_config:
+    if real_dataset == "edge_iiot":
+        args.config = _real_config
+        args.use_real_data = True
+        print(f"[run_full_pipeline] --real_dataset {real_dataset} detected; "
+              f"forcing config={_real_config} and use_real_data=True")
+    elif real_dataset and args.config == _default_config:
         args.config = _real_config
         print(f"[run_full_pipeline] --real_dataset {real_dataset} detected; "
               f"switching config to {_real_config}")

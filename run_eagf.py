@@ -187,7 +187,7 @@ def run_biometric_main(config, dataset, seeds, output_dir):
 
 
 def run_pareto(config, dataset, seed, output_dir):
-    """Run 5×5 Pareto grid search."""
+    """Run 4×3=12-point Pareto grid search with explicit lambda values."""
     from src.training.pareto_trainer import run_pareto_search
 
     banner("STEP 4 — Pareto-Front Hyperparameter Search")
@@ -200,6 +200,8 @@ def run_pareto(config, dataset, seed, output_dir):
         device="cpu",
         output_dir=os.path.join(output_dir, "pareto"),
         dataset=dataset,
+        lambda_rp_values=[0.01, 0.1, 0.5, 1.0],
+        lambda_c_values=[0.01, 0.1, 0.5],
     )
 
 
@@ -566,6 +568,16 @@ def main():
                 allow_synthetic_fallback=allow_fallback,
             )
             dataset = loader.to_dataset_dict(file_path=real_data_path)
+            # Hard fail if synthetic data was loaded instead of real dataset.
+            if dataset.get("source") != "edge_iiot_real":
+                raise RuntimeError(
+                    f"Synthetic data detected (source={dataset.get('source')!r}). "
+                    "Real dataset required for publication runs.\n"
+                    "Download Edge-IIoTset from: "
+                    "https://ieee-dataport.org/documents/edge-iiotset\n"
+                    "or pass --allow_synthetic_fallback for offline smoke-testing."
+                )
+            print("✅ USING REAL DATASET: Edge-IIoTset")
             # Print dataset confirmation
             info = dataset.get("dataset_info", {})
             print(f"  Dataset confirmed: source={dataset['source']}")

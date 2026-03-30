@@ -326,20 +326,20 @@ If you use this repository, please cite the associated EAGF paper.
 
 # 📊 Latest Experimental Results
 
-*Auto-generated on 2026-03-30 13:58 UTC using seeds [42, 43, 44, 45, 46, 47, 48, 49, 50, 51].*
+*Auto-generated on 2026-03-30 20:32 UTC using seeds [42].*
 
 ## Results Table
 
 | Model | Accuracy | Recall Parity | Clarity (C) | Privacy (P) | Accountability (A) | Trust Index (TI) |
 |---|---|---|---|---|---|---|
-| baseline | 0.8421 | 0.8019 | 0.9361 | 0.2392 | 0.3000 | 0.5693 |
-| eagf | 0.8396 | 0.8081 | 0.9341 | 0.2386 | 0.9833 | 0.7410 |
-| joint_dp_fair | 0.8023 | 0.8689 | 0.9453 | 0.4199 | 0.3000 | 0.6335 |
+| baseline | 0.8292 | 0.3706 | 0.9266 | 0.2500 | 0.3000 | 0.4618 |
+| eagf | 0.8458 | 0.3281 | 0.9619 | 0.2502 | 0.9833 | 0.6309 |
+| joint_dp_fair | 0.8000 | 0.3977 | 0.9945 | 0.2464 | 0.3000 | 0.4847 |
 
 ## Key Observations
 
-- EAGF improves Trust Index by **+0.1717** (30.16%) relative to baseline.
-- Accuracy change: **-0.0025** (acceptable trade-off for governance benefits).
+- EAGF improves Trust Index by **+0.1691** (36.62%) relative to baseline.
+- Accuracy change: **+0.0166** (acceptable trade-off for governance benefits).
 - Full governance (EAGF) outperforms all single-pillar ablations on TI.
 
 ## Reports and Figures
