@@ -1,0 +1,65 @@
+# configs/reiot_real.yaml
+# EAGF configuration for the Edge-IIoTset real IoT dataset experiment.
+#
+# Reference: M. A. Ferrag et al., "Edge-IIoTset: A New Comprehensive Realistic
+# Cyber Security Dataset of IoT and IIoT Applications," IEEE Access, 2022.
+#
+# Usage:
+#   python run_full_pipeline.py \
+#     --config configs/reiot_real.yaml \
+#     --real_dataset edge_iiot \
+#     --seeds 42 43 44 45 46
+
+data:
+  name: edge_iiot
+  type: real
+  source: Edge-IIoTset
+  max_rows: 150000
+  data_dir: data/real_iot
+  protected_group: protocol_type   # TCP/IP_layer column; fallback: device_type
+  split_ratios: [0.64, 0.16, 0.20] # train / val / test fractions
+  label_col: Attack_type
+  binary_label: true               # normal (0) vs attack (1)
+
+model:
+  architecture: tabular_mlp
+  hidden_dims: [256, 128, 64]
+  dropout: 0.3
+  activation: relu
+
+training:
+  epochs: 20
+  batch_size: 128
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  early_stopping_patience: 5
+
+seeds: [42, 43, 44, 45, 46]        # 5 seeds for statistical robustness
+
+governance:
+  dp_enabled: true
+  dp_epsilon: 3.0
+  dp_delta: 1.0e-5
+  lambda_fprp: 0.15                # False-Positive-Rate Parity penalty weight
+  lambda_c: 0.05                   # Clarity (L1 explanation sparsity) penalty
+  shap_explainer: kernel
+  shap_top_k: 5
+  audit_log: true
+
+fairness:
+  criterion: fprp                  # False Positive Rate Parity (IoT node-class)
+  protected_groups:
+    - protocol_type                # primary: TCP/IP_layer (protocol group)
+    - device_type                  # fallback if protocol_type absent
+
+thresholds:
+  min_clarity: 0.75
+  min_fprp: 0.85
+  min_privacy: 0.80
+  min_accountability: 0.85
+  min_trust_index: 0.82
+
+output:
+  results_dir: results
+  figures_dir: figures
+  report_path: results/final_report.txt
