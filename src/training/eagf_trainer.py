@@ -4,8 +4,8 @@ Methodology note:
 - Fairness and privacy are optimized during training.
     - Fairness: gradient-based recall-parity penalty term.
     - Privacy: DP-SGD training dynamics via Opacus (optimizer-level).
-- Transparency is enforced structurally via a confidence/complexity proxy
-    regularizer and evaluated with post-training clarity metrics.
+- Transparency is enforced structurally via L1 input-weight sparsity and
+    evaluated with post-training clarity and calibration metrics.
 - Accountability is computed post-hoc from audit artifacts and checklists.
 """
 
@@ -26,6 +26,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
 from src.evaluation.audit_logger import AuditLogger
+from src.evaluation.calibration import compute_calibration_metrics
 from src.evaluation.mia_attack import run_shadow_model_attack
 from src.metrics.accountability import compute_accountability
 from src.metrics.clarity import compute_global_clarity
@@ -280,8 +281,9 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
             else:
                 p_pos = probs[:, 0]
             l_fair = recall_parity_penalty_torch(yb, p_pos, gb, rp_target=target_rp)
-            # Structural transparency proxy: encourages stable/confident outputs
-            # as a training-time constraint surrogate.
+            # clarity_penalty_from_outputs returns zero — no confidence-inflating
+            # terms are applied.  L1 weight sparsity below is the only structural
+            # transparency regularizer.
             l_clarity = clarity_penalty_from_outputs(probs, target_confidence=target_clarity_conf)
 
             gradient_objective = l_task + (lambda_rp * l_fair)
@@ -430,6 +432,10 @@ def _compute_all_metrics(model_adapter, X_train, y_train, X_val, y_val, groups_v
 
     ti_result = trust_index(C, Fv, P, A)
 
+    # Calibration metrics: ECE and Brier Score.
+    y_proba_test = model_adapter.predict_proba(X_test)
+    calib_result = compute_calibration_metrics(y_test, y_proba_test)
+
     return {
         "accuracy": acc,
         "recall_parity": Fv,
@@ -439,6 +445,8 @@ def _compute_all_metrics(model_adapter, X_train, y_train, X_val, y_val, groups_v
         "trust_index": float(ti_result["ti"]),
         "mia_auc": mia_auc,
         "epsilon_eff": float(epsilon_eff),
+        "ece": calib_result["ece"],
+        "brier_score": calib_result["brier_score"],
         "ti_components": ti_result["components"],
         "audit": acc_result,
     }

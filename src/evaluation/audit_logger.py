@@ -29,7 +29,9 @@ class AuditLogger:
     def log(self, input_data, output_label: int, output_confidence: float,
             inference_time_ms: Optional[float] = None,
             memory_usage_mb: Optional[float] = None,
-            energy_overhead_joules: Optional[float] = None) -> dict:
+            energy_overhead_joules: Optional[float] = None,
+            ece: Optional[float] = None,
+            brier_score: Optional[float] = None) -> dict:
         """Write one signed audit entry.
 
         Args:
@@ -39,6 +41,8 @@ class AuditLogger:
             inference_time_ms: Time taken for the forward pass in milliseconds.
             memory_usage_mb: RSS memory usage of the process in megabytes.
             energy_overhead_joules: Estimated energy cost (time_s * CPU watts).
+            ece: Expected Calibration Error for the evaluation batch.
+            brier_score: Brier Score for the evaluation batch.
         """
         if hasattr(input_data, 'tobytes'):
             raw = input_data.tobytes()
@@ -62,6 +66,11 @@ class AuditLogger:
             entry["memory_usage_mb"] = float(memory_usage_mb)
         if energy_overhead_joules is not None:
             entry["energy_overhead_joules"] = float(energy_overhead_joules)
+        # Calibration metrics — included only when explicitly provided.
+        if ece is not None:
+            entry["ece"] = float(ece)
+        if brier_score is not None:
+            entry["brier_score"] = float(brier_score)
 
         # Simple HMAC-style signature (SHA-256 of entry content)
         content = json.dumps({k: v for k, v in entry.items()}, sort_keys=True)

@@ -8,7 +8,6 @@ Training-time objective helpers.
 """
 import numpy as np
 import torch
-import torch.nn.functional as F
 
 
 def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
@@ -51,30 +50,27 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
 
 
 def clarity_penalty_from_outputs(y_pred_proba, target_confidence=0.80):
-    """Transparency surrogate that aligns with the explanation-clarity metric.
+    """Transparency surrogate used during training.
 
-    Combines two complementary terms:
-    1. Entropy penalty H(p) = -sum(p * log(p)): always non-zero with an
-       always-active gradient that encourages decisive, low-uncertainty
-       predictions. This is the primary alignment term — lower entropy
-       corresponds to a cleaner local decision boundary, which improves
-       LIME surrogate fidelity and therefore the clarity metric.
-    2. Confidence floor: a squared hinge that fires only when max confidence
-       is below `target_confidence`. Acts as an additional structural
-       constraint once the entropy term has reduced uncertainty.
+    The entropy-based penalty and confidence-floor penalty have been removed
+    because they push softmax outputs toward extreme (overconfident) values,
+    which artificially inflates model confidence and distorts calibration.
 
-    Both terms are added with equal weight. The entropy term is ~O(log(C))
-    (C = number of classes), while the confidence floor is at most
-    (1 - target_confidence)^2, so they are naturally in the same range.
+    The only structural regularization that promotes explanation clarity is
+    L1 weight sparsity on the input projection, which is applied directly in
+    the training loop (see eagf_trainer.py). This function returns a zero
+    contribution so the training objective is not contaminated by
+    confidence-inflating terms.
+
+    Args:
+        y_pred_proba: Tensor of predicted probabilities, shape (N, C).
+        target_confidence: Unused; retained for API backward-compatibility.
+
+    Returns:
+        Scalar zero tensor (no gradient through this term).
     """
-    # Entropy penalty: H(p) — always non-zero → always has gradient
-    entropy = -(y_pred_proba * (y_pred_proba + 1e-10).log()).sum(dim=1).mean()
-    # Confidence floor as additional structural constraint
-    max_conf = y_pred_proba.max(dim=1).values.mean()
-    conf_penalty = F.relu(
-        torch.tensor(target_confidence, device=y_pred_proba.device) - max_conf
-    ) ** 2
-    return entropy + conf_penalty
+    _ = target_confidence  # Retained for API compatibility.
+    return torch.zeros((), device=y_pred_proba.device)
 
 
 def recall_parity_penalty(y_true, y_pred_proba, group_labels,
