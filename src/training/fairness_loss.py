@@ -52,15 +52,21 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
 def clarity_penalty_from_outputs(y_pred_proba, target_confidence=0.80):
     """Transparency surrogate used during training.
 
+    Clarity is evaluated post-hoc and not directly optimized to avoid
+    metric gaming.
+
     The entropy-based penalty and confidence-floor penalty have been removed
     because they push softmax outputs toward extreme (overconfident) values,
     which artificially inflates model confidence and distorts calibration.
+    Such penalties constitute metric gaming: they improve the calibration
+    proxy used during training at the expense of true model calibration, ECE,
+    and Brier Score measured at evaluation time.
 
     The only structural regularization that promotes explanation clarity is
     L1 weight sparsity on the input projection, which is applied directly in
-    the training loop (see eagf_trainer.py). This function returns a zero
-    contribution so the training objective is not contaminated by
-    confidence-inflating terms.
+    the training loop (see eagf_trainer.py). Sparse input weights reduce the
+    effective explanation size, which improves ClarityScore = Fidelity /
+    (1 + Size) without manipulating model confidence.
 
     Args:
         y_pred_proba: Tensor of predicted probabilities, shape (N, C).
@@ -70,6 +76,8 @@ def clarity_penalty_from_outputs(y_pred_proba, target_confidence=0.80):
         Scalar zero tensor (no gradient through this term).
     """
     _ = target_confidence  # Retained for API compatibility.
+    # Clarity is evaluated post-hoc and not directly optimized to avoid
+    # metric gaming — return zero so no confidence-inflating gradient flows.
     return torch.zeros((), device=y_pred_proba.device)
 
 

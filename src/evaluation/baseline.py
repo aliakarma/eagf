@@ -12,6 +12,7 @@ except ImportError:
     HAS_PANDAS = False
 
 METRICS = ["accuracy", "recall_parity", "clarity", "privacy", "accountability", "trust_index",
+           "ece", "brier_score",
            "inference_time_ms", "memory_usage_mb", "energy_overhead_joules"]
 
 
