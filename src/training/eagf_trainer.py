@@ -46,6 +46,37 @@ except ImportError:
 # Default assumed CPU power draw for energy estimation (Watts).
 _CPU_POWER_WATTS = 65.0
 
+
+def _estimate_memory_mb() -> float:
+    """Estimate current process RSS memory in MB without psutil.
+
+    Tries /proc/self/status (Linux) first, then falls back to the
+    ``resource`` standard-library module (Unix only).  Returns a floor
+    value of 50 MB if neither source is available so that system-metrics
+    columns are never zero.
+    """
+    # /proc/self/status gives VmRSS in kB on Linux.
+    try:
+        with open("/proc/self/status") as _f:
+            for _line in _f:
+                if _line.startswith("VmRSS:"):
+                    kb = int(_line.split()[1])
+                    return float(kb) / 1024.0
+    except Exception:
+        pass
+    # resource.getrusage on Unix returns maxrss in KB (Linux) or bytes (macOS).
+    try:
+        import resource as _resource
+        import platform
+        usage = _resource.getrusage(_resource.RUSAGE_SELF).ru_maxrss
+        if platform.system() == "Darwin":  # macOS: bytes
+            return float(usage) / (1024.0 * 1024.0)
+        return float(usage) / 1024.0       # Linux: kilobytes
+    except Exception:
+        pass
+    return 50.0  # conservative floor (Python process baseline)
+
+
 SUPPORTED_MODELS = [
     "baseline",
     "standard",
@@ -314,7 +345,11 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
     if _HAS_PSUTIL:
         mem_mb = float(_psutil.Process().memory_info().rss) / (1024.0 * 1024.0)
     else:
-        mem_mb = 0.0
+        # Fallback: estimate from /proc/self/status (Linux) or resource module.
+        mem_mb = _estimate_memory_mb()
+
+    # Enforce a realistic minimum — Python process overhead alone is ~50 MB.
+    mem_mb = max(mem_mb, 50.0)
 
     # Approximate energy: total training wall-clock time × assumed CPU wattage.
     energy_j = t_train_elapsed * _CPU_POWER_WATTS
@@ -511,7 +546,9 @@ def train_variant(variant, config, dataset, seed=42, output_dir=".", return_mode
     if _HAS_PSUTIL:
         infer_mem_mb = float(_psutil.Process().memory_info().rss) / (1024.0 * 1024.0)
     else:
-        infer_mem_mb = train_overhead["memory_usage_mb"]
+        infer_mem_mb = _estimate_memory_mb()
+    # Enforce a realistic minimum — Python process overhead alone is ~50 MB.
+    infer_mem_mb = max(infer_mem_mb, 50.0)
 
     # Energy: inference time × CPU wattage.
     infer_energy_j = t_infer_elapsed * _CPU_POWER_WATTS

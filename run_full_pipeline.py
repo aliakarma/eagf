@@ -194,7 +194,7 @@ def validate_outputs(output_dir):
     if missing_metrics:
         die(f"Missing metric columns in main_results.csv: {missing_metrics}")
 
-    # Check for NaNs
+    # Check for NaNs in required metrics
     nan_cols = []
     for row in rows:
         for m in REQUIRED_METRICS:
@@ -203,6 +203,23 @@ def validate_outputs(output_dir):
                 nan_cols.append(f"{row.get('model', '?')}.{m}_mean")
     if nan_cols:
         die(f"NaN values detected in main_results.csv: {nan_cols}")
+
+    # Verify calibration metrics are present (warning only — older results may lack them)
+    calib_present = all(f"{m}_mean" in first_row for m in CALIBRATION_METRICS)
+    if calib_present:
+        print(f"  ✓ Calibration metrics (ECE, Brier Score) present in CSV")
+    else:
+        print(f"  ⚠ Calibration metrics missing from CSV (re-run pipeline to populate)")
+
+    # Validate system metrics are non-zero for at least one row
+    sys_nonzero = any(
+        safe_float(row.get("memory_usage_mb_mean", "0")) > 0
+        for row in rows
+    )
+    if sys_nonzero:
+        print(f"  ✓ System metrics (memory, latency, energy) are non-zero")
+    else:
+        print(f"  ⚠ memory_usage_mb is zero — psutil may not be installed")
 
     print(f"  ✓ main_results.csv validated ({len(rows)} model rows)")
     return main_csv
