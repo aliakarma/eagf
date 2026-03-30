@@ -20,6 +20,10 @@ import argparse, itertools, json, os
 import numpy as np
 import yaml
 
+# Minimum required Trust Index spread across the Pareto front.
+# Trade-offs with ΔTI ≤ this threshold indicate a flat Pareto front.
+MIN_TI_SPREAD = 0.08
+
 
 def log_spaced_grid(low, high, n_steps):
     return list(np.logspace(np.log10(low), np.log10(high), n_steps))
@@ -42,20 +46,27 @@ def pareto_front(results, objectives=None):
 
 
 def run_pareto_search(config, lambda_rp_range, lambda_c_range, n_steps,
-                      seed, device, output_dir, dataset=None):
+                      seed, device, output_dir, dataset=None,
+                      lambda_rp_values=None, lambda_c_values=None):
     """Run full Pareto-grid search and return best model metrics.
 
     Dynamic AHP weights are updated after each grid point using
     ``calculate_dynamic_weights()``.  The adapted weights evolve across runs
     in response to the observed MIA success rate and fairness loss, providing
     agentic weight adaptation without modifying the training objective itself.
+
+    Args:
+        lambda_rp_values: Optional explicit list of lambda_rp values to use.
+            When provided, overrides lambda_rp_range and n_steps.
+        lambda_c_values: Optional explicit list of lambda_c values to use.
+            When provided, overrides lambda_c_range and n_steps.
     """
     from src.training.eagf_trainer import train_variant, load_biometric_dataset
     from src.utils.ahp import calculate_dynamic_weights, equal_weights
 
     os.makedirs(output_dir, exist_ok=True)
-    lrp_vals = log_spaced_grid(*lambda_rp_range, n_steps)
-    lc_vals  = log_spaced_grid(*lambda_c_range,  n_steps)
+    lrp_vals = lambda_rp_values if lambda_rp_values is not None else log_spaced_grid(*lambda_rp_range, n_steps)
+    lc_vals  = lambda_c_values  if lambda_c_values  is not None else log_spaced_grid(*lambda_c_range,  n_steps)
     grid = list(itertools.product(lrp_vals, lc_vals))
     print(f"Pareto search: {len(grid)} grid points...")
 
@@ -125,10 +136,10 @@ def run_pareto_search(config, lambda_rp_range, lambda_c_range, n_steps,
     print(f"\nPareto search done. Best TI={best['trust_index']:.3f} "
           f"(lrp={best['lambda_rp']:.4f}, lc={best['lambda_c']:.4f})")
     print(f"  Pareto TI spread: min={min(ti_values):.3f} max={max(ti_values):.3f} Δ={ti_spread:.3f}")
-    if ti_spread <= 0.05:
-        print(f"  WARNING: Pareto TI spread {ti_spread:.3f} ≤ 0.05 — trade-offs are weak.")
+    if ti_spread <= MIN_TI_SPREAD:
+        print(f"  WARNING: Pareto TI spread {ti_spread:.3f} ≤ {MIN_TI_SPREAD} — trade-offs are weak.")
     else:
-        print(f"  ✓ Pareto spread {ti_spread:.3f} > 0.05 — real trade-offs confirmed.")
+        print(f"  ✓ Pareto spread {ti_spread:.3f} > {MIN_TI_SPREAD} — real trade-offs confirmed.")
     return {"pareto_front": front, "best": best, "all_results": all_results,
             "ti_spread": ti_spread}
 

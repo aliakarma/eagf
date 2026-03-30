@@ -240,9 +240,10 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
     lr = float(training_cfg.get("lr", 5e-4))
     weight_decay = float(training_cfg.get("weight_decay", 1e-3))
 
-    lambda_rp_cfg = float(gov_cfg.get("lambda_rp", 0.0))
+    # Support both lambda_rp and legacy lambda_fprp key names.
+    lambda_rp_cfg = float(gov_cfg.get("lambda_rp") if "lambda_rp" in gov_cfg else gov_cfg.get("lambda_fprp", 0.0))
     lambda_c_cfg = float(gov_cfg.get("lambda_c", 0.0))
-    target_rp = float(thresholds.get("min_recall_parity", 0.95))
+    target_rp = float(thresholds.get("min_recall_parity", thresholds.get("min_fprp", 0.95)))
     target_clarity_conf = float(thresholds.get("min_clarity", 0.80))
 
     # Fairness is a gradient-optimized objective term.
@@ -291,6 +292,7 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
 
     model.train()
     batch_fwd_times_ms: list[float] = []  # per-sample forward pass ms, collected per batch
+    _fairness_debug_logged = False
     t_train_start = time.perf_counter()
     for _epoch in range(epochs):
         for xb, yb, gb in train_loader:
@@ -312,6 +314,9 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
             else:
                 p_pos = probs[:, 0]
             l_fair = recall_parity_penalty_torch(yb, p_pos, gb, rp_target=target_rp)
+            if not _fairness_debug_logged and lambda_rp > 0:
+                print(f"Fairness loss: {l_fair.item():.6f} (lambda_rp={lambda_rp})")
+                _fairness_debug_logged = True
             # clarity_penalty_from_outputs returns zero — no confidence-inflating
             # terms are applied.  L1 weight sparsity below is the only structural
             # transparency regularizer.

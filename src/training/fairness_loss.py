@@ -18,12 +18,12 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
         y_true: Tensor[int], shape (N,)
         y_pred_proba_pos: Tensor[float], shape (N,), probability of positive class.
         group_labels: Tensor[int], shape (N,)
-        rp_target: minimum target ratio min(recall_g)/max(recall_g).
+        rp_target: target recall-parity ratio min(recall_g)/max(recall_g).
 
     Returns:
-        Scalar torch tensor penalty (without lambda multiplier).
+        Scalar torch tensor penalty = |target_rp - current_rp|.
+        Gradient is always non-zero whenever current_rp != rp_target.
     """
-    _ = rp_target  # Kept for API compatibility with existing call sites.
     unique_groups = torch.unique(group_labels)
     recalls = []
     y_true_f = y_true.float()
@@ -44,9 +44,13 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
         return torch.zeros((), device=y_true.device)
 
     recalls_t = torch.stack(recalls)
-    # Stable fairness penalty: directly minimize recall disparity across groups.
-    rp_gap = torch.abs(recalls_t.max() - recalls_t.min())
-    return rp_gap
+    # Compute soft recall-parity ratio: min_recall / max_recall.
+    # Use absolute deviation from target so the gradient is always non-zero
+    # whenever the current parity differs from the target.
+    current_rp = recalls_t.min() / (recalls_t.max() + 1e-8)
+    target_t = torch.tensor(float(rp_target), device=y_true.device, dtype=current_rp.dtype)
+    fairness_loss = torch.abs(target_t - current_rp)
+    return fairness_loss
 
 
 def clarity_penalty_from_outputs(y_pred_proba, target_confidence=0.80):
