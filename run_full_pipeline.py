@@ -61,7 +61,14 @@ def parse_args():
                    help="Path to YAML config file passed to run_eagf.py (default: RE-IoT)")
     p.add_argument("--use_real_data", action="store_true",
                    help="Also run a real-data pass (requires --real_data_path)")
-    p.add_argument("--real_data_path", default=None)
+    p.add_argument("--real_dataset", default=None,
+                   choices=["edge_iiot", "ton_iot"],
+                   help="Run with a real IoT dataset as the primary data source. "
+                        "When set to 'edge_iiot', switches the default config to "
+                        "configs/reiot_real.yaml and routes loading through "
+                        "EdgeIIoTLoader (auto-downloads if data absent).")
+    p.add_argument("--real_data_path", default=None,
+                   help="Optional explicit path to the real dataset CSV")
     p.add_argument("--skip_clean", action="store_true",
                    help="Skip deletion of old results/ and figures/ directories")
     p.add_argument("--skip_pareto", action="store_true",
@@ -135,12 +142,19 @@ def run_experiments(seeds, epochs, args):
     """Call run_eagf.py for synthetic (and optionally real) data."""
     banner("STEP 2 — Running experiments")
 
+    # When --real_dataset is specified, always enable --use_real_data and
+    # switch to the real-dataset config unless the caller has explicitly
+    # provided a different one.
+    real_dataset = args.real_dataset
+    use_real = args.use_real_data or bool(real_dataset)
+    config = args.config
+
     # Build base command
     cmd = [
         sys.executable, "run_eagf.py",
         "--seeds", *[str(s) for s in seeds],
         "--epochs", str(epochs),
-        "--config", args.config,
+        "--config", config,
         "--output", args.output,
         "--baseline", "joint_dp_fair",
     ]
@@ -148,6 +162,12 @@ def run_experiments(seeds, epochs, args):
         cmd.append("--skip-pareto")
     if args.skip_reiot:
         cmd.append("--skip-reiot")
+
+    # Inject real-dataset flags when requested
+    if use_real and real_dataset:
+        cmd += ["--use_real_data", "--real_dataset", real_dataset]
+        if args.real_data_path:
+            cmd += ["--real_data_path", args.real_data_path]
 
     print(f"  Command: {' '.join(cmd)}")
     t0 = time.time()
@@ -157,8 +177,9 @@ def run_experiments(seeds, epochs, args):
         die(f"run_eagf.py exited with code {result.returncode}")
     print(f"  Finished in {elapsed:.1f}s")
 
-    # Optionally run with real data (best-effort)
-    if args.use_real_data:
+    # Optionally also run with real data when only --use_real_data was given
+    # (legacy path: requires explicit --real_data_path).
+    if args.use_real_data and not real_dataset:
         if not args.real_data_path:
             print("  WARNING: --use_real_data set but --real_data_path missing; skipping real run.")
         else:
@@ -676,10 +697,24 @@ def generate_figures(output_dir, figures_dir):
 def main():
     args = parse_args()
 
+    # When --real_dataset is specified, override the config to reiot_real.yaml
+    # unless the user has explicitly supplied a different config.
+    real_dataset = getattr(args, "real_dataset", None)
+    _real_config = "configs/reiot_real.yaml"
+    _default_config = "configs/reiot_default.yaml"
+    if real_dataset and args.config == _default_config:
+        args.config = _real_config
+        print(f"[run_full_pipeline] --real_dataset {real_dataset} detected; "
+              f"switching config to {_real_config}")
+
     if args.fast:
         seeds  = FAST_SEEDS
         epochs = 20
         print("Fast mode: 1 seed, 20 epochs")
+    elif real_dataset:
+        # Default to 5 seeds (42–46) for the real-dataset run per spec.
+        seeds  = args.seeds if args.seeds else [42, 43, 44, 45, 46]
+        epochs = args.epochs
     else:
         seeds  = args.seeds if args.seeds else ALL_SEEDS
         epochs = args.epochs
