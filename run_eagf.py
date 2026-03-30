@@ -62,6 +62,10 @@ def parse_args():
     p.add_argument("--real_dataset", default="edge_iiot",
                    choices=["edge_iiot", "ton_iot"],
                    help="Which real-world dataset to load (default: edge_iiot)")
+    p.add_argument("--allow_synthetic_fallback", action="store_true",
+                   help="Allow EdgeIIoTLoader to fall back to synthetic data when "
+                        "the real dataset is unavailable (offline CI only; "
+                        "NOT for publication runs)")
     p.add_argument("--baseline", default=None, choices=["joint_dp_fair"],
                    help="Run an additional strong baseline alongside EAGF. "
                         "Supported: joint_dp_fair")
@@ -540,18 +544,55 @@ def main():
     config["training"]["epochs"] = args.epochs
 
     if args.use_real_data:
-        from src.utils.real_iot_loader import RealIoTLoader
-        real_data_path = args.real_data_path
-        if not real_data_path:
-            raise ValueError(
-                "--real_data_path must be specified when using --use_real_data.\n"
-                f"Download the {getattr(args, 'real_dataset', 'edge_iiot')} dataset "
-                "and pass its CSV path via --real_data_path."
-            )
         real_dataset = getattr(args, "real_dataset", "edge_iiot")
-        print(f"  Loading real {real_dataset} dataset from: {real_data_path}")
-        loader = RealIoTLoader(dataset=real_dataset, seed=args.seeds[0])
-        dataset = loader.load(file_path=real_data_path)
+        real_data_path = args.real_data_path
+        if real_dataset == "edge_iiot":
+            from src.utils.edge_iiot_loader import EdgeIIoTLoader
+            max_rows = int(config.get("data", {}).get("max_rows", 150_000))
+            data_dir = config.get("data", {}).get("data_dir", "data/real_iot")
+            protected_group = config.get("data", {}).get(
+                "protected_group", "protocol_type"
+            )
+            allow_fallback = getattr(args, "allow_synthetic_fallback", False)
+            print(f"  Loading Edge-IIoTset via EdgeIIoTLoader "
+                  f"(max_rows={max_rows}, protected_group={protected_group}, "
+                  f"allow_synthetic_fallback={allow_fallback})")
+            loader = EdgeIIoTLoader(
+                max_rows=max_rows,
+                seed=args.seeds[0],
+                data_dir=data_dir,
+                protected_group=protected_group,
+                auto_download=True,
+                allow_synthetic_fallback=allow_fallback,
+            )
+            dataset = loader.to_dataset_dict(file_path=real_data_path)
+            # Print dataset confirmation
+            info = dataset.get("dataset_info", {})
+            print(f"  Dataset confirmed: source={dataset['source']}")
+            print(f"  Rows used: {info.get('n_rows_used', '?')}  "
+                  f"Features: {info.get('n_features', '?')}")
+            bd = info.get("binary_distribution", {})
+            print(f"  Class distribution: normal={bd.get('normal', '?')}  "
+                  f"attack={bd.get('attack', '?')}")
+            gd = info.get("protected_group_distribution", {})
+            print(f"  Protected group ({info.get('protected_group_col', '?')}): "
+                  + "  ".join(f"{k}={v}" for k, v in sorted(gd.items())))
+            # Persist dataset_info for the report generator
+            info_path = os.path.join(args.output, "dataset_info.json")
+            os.makedirs(args.output, exist_ok=True)
+            with open(info_path, "w") as _fh:
+                json.dump(info, _fh, indent=2)
+        else:
+            from src.utils.real_iot_loader import RealIoTLoader
+            if not real_data_path:
+                raise ValueError(
+                    "--real_data_path must be specified when using --use_real_data "
+                    f"with dataset '{real_dataset}'.\n"
+                    "Pass its CSV path via --real_data_path."
+                )
+            print(f"  Loading real {real_dataset} dataset from: {real_data_path}")
+            loader = RealIoTLoader(dataset=real_dataset, seed=args.seeds[0])
+            dataset = loader.load(file_path=real_data_path)
         print(f"  Real dataset loaded (source={dataset['source']})")
     else:
         from src.utils.data_loader import load_biometric_dataset
