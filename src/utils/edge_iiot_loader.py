@@ -3,9 +3,12 @@ src/utils/edge_iiot_loader.py — Edge-IIoTset Dataset Loader
 
 Loads the Edge-IIoTset (2022) IoT intrusion-detection dataset for use in the
 EAGF pipeline.  If the raw CSV is not present locally the loader will attempt
-to download a publicly-available subset, falling back to a high-fidelity
-synthetic replica of the Edge-IIoTset schema when the download is unavailable
-(e.g. in offline CI environments).
+to download a publicly-available subset.
+
+By default, **no synthetic fallback is allowed**.  If the dataset cannot be
+located or downloaded a ``RuntimeError`` is raised to enforce the requirement
+that real data is used.  Pass ``allow_synthetic_fallback=True`` (or the CLI
+flag ``--allow_synthetic_fallback``) only for offline CI smoke-tests.
 
 Edge-IIoTset reference
 ----------------------
@@ -21,6 +24,8 @@ Usage::
     X_train, X_test, y_train, y_test, groups_train, groups_test = loader.load()
     # or for the full EAGF dataset dict:
     dataset = loader.to_dataset_dict()
+    # Access dataset metadata logged during load:
+    info = loader.dataset_info  # rows, features, class_dist, group_dist, source
 """
 
 from __future__ import annotations
@@ -257,6 +262,9 @@ class EdgeIIoTLoader:
         name contains ``device``).
     auto_download : bool
         If True (default), attempt to download the dataset when not found.
+    allow_synthetic_fallback : bool
+        If False (default), raise ``RuntimeError`` when the real dataset cannot
+        be obtained.  Set to True **only** for offline CI smoke-tests.
     test_size : float
         Fraction of data held out for testing.  Default: 0.20.
     """
@@ -268,6 +276,7 @@ class EdgeIIoTLoader:
         data_dir: str = "data/real_iot",
         protected_group: str = "protocol_type",
         auto_download: bool = True,
+        allow_synthetic_fallback: bool = False,
         test_size: float = _TEST_SIZE,
     ) -> None:
         self.max_rows = max_rows
@@ -275,6 +284,7 @@ class EdgeIIoTLoader:
         self.data_dir = data_dir
         self.protected_group = protected_group
         self.auto_download = auto_download
+        self.allow_synthetic_fallback = allow_synthetic_fallback
         self.test_size = test_size
 
         # Populated after load()
@@ -287,6 +297,9 @@ class EdgeIIoTLoader:
         self._n_features: int = 0
         self._scaler: Optional[StandardScaler] = None
         self._source: str = "edge_iiot"
+
+        # Populated after load() with dataset statistics for reporting.
+        self.dataset_info: dict = {}
 
     # ------------------------------------------------------------------
     # Download / locate data
@@ -484,6 +497,7 @@ class EdgeIIoTLoader:
             return df
 
         label_col = _LABEL_COL if _LABEL_COL in df.columns else df.columns[-1]
+        # Fraction of rows to *keep* — used as test_size in the discard/keep split.
         sample_frac = self.max_rows / len(df)
         try:
             # sklearn train_test_split: test_size must be a fraction in (0, 1)
@@ -518,6 +532,12 @@ class EdgeIIoTLoader:
         -------
         X_train, X_test, y_train, y_test, groups_train, groups_test
             All arrays are ready for use in the EAGF training pipeline.
+
+        Raises
+        ------
+        RuntimeError
+            If the real dataset cannot be obtained and
+            ``allow_synthetic_fallback`` is False.
         """
         # ── Locate / obtain data ─────────────────────────────────────────────
         if file_path is None:
@@ -528,10 +548,11 @@ class EdgeIIoTLoader:
             df = _load_csv(file_path)
             self._source = "edge_iiot_real"
             logger.info("Loaded %d rows, %d columns", len(df), len(df.columns))
-        else:
+        elif self.allow_synthetic_fallback:
             warnings.warn(
                 "\n[EdgeIIoTLoader] Edge-IIoTset CSV not found and download unavailable.\n"
-                "Falling back to a high-fidelity synthetic replica of Edge-IIoTset.\n"
+                "allow_synthetic_fallback=True — using synthetic replica.\n"
+                "WARNING: Results from synthetic data are NOT publication-ready.\n"
                 "To use the real dataset, download from:\n"
                 "  https://ieee-dataport.org/documents/edge-iiotset\n"
                 f"and place the CSV in: {self.data_dir}/",
@@ -542,10 +563,40 @@ class EdgeIIoTLoader:
             df = _generate_realistic_fallback(n_fallback, self.seed)
             self._source = "edge_iiot_synthetic"
             logger.info("Generated synthetic Edge-IIoTset replica: %d rows", len(df))
+        else:
+            raise RuntimeError(
+                "Real dataset required but Edge-IIoTset CSV was not found and "
+                "download failed.\n"
+                "Options:\n"
+                "  1. Download the dataset from:\n"
+                "       https://ieee-dataport.org/documents/edge-iiotset\n"
+                f"     and place the CSV in: {self.data_dir}/\n"
+                "  2. Provide an explicit path via the file_path argument or\n"
+                "     the --real_data_path CLI flag.\n"
+                "  3. Pass allow_synthetic_fallback=True (or --allow_synthetic_fallback)\n"
+                "     to use a synthetic replica for offline testing only."
+            )
 
         # ── Subsample if necessary ───────────────────────────────────────────
+        n_raw = len(df)
         df = self._stratified_sample(df)
-        logger.info("Using %d rows after sampling", len(df))
+        n_sampled = len(df)
+        logger.info("Using %d rows after sampling (from %d raw)", n_sampled, n_raw)
+
+        # ── Compute dataset statistics before preprocessing ──────────────────
+        label_col = _LABEL_COL if _LABEL_COL in df.columns else df.columns[-1]
+        raw_labels = df[label_col].astype(str)
+        class_dist: dict = raw_labels.value_counts().to_dict()
+        binary_dist: dict = {
+            "normal": int((raw_labels == _NORMAL_LABEL).sum()),
+            "attack": int((raw_labels != _NORMAL_LABEL).sum()),
+        }
+
+        group_col_name = self._resolve_group_col(df, self.protected_group)
+        if group_col_name and group_col_name in df.columns:
+            group_dist: dict = df[group_col_name].astype(str).value_counts().to_dict()
+        else:
+            group_dist = {"unknown": n_sampled}
 
         # ── Preprocess & split ───────────────────────────────────────────────
         (
@@ -554,11 +605,37 @@ class EdgeIIoTLoader:
             self._groups_train, self._groups_test,
         ) = self._preprocess(df)
 
+        # ── Store dataset metadata for reporting ─────────────────────────────
+        self.dataset_info = {
+            "source": self._source,
+            "n_rows_raw": n_raw,
+            "n_rows_used": n_sampled,
+            "n_features": self._n_features,
+            "n_train": int(len(self._y_train)),
+            "n_test": int(len(self._y_test)),
+            "class_distribution": class_dist,
+            "binary_distribution": binary_dist,
+            "protected_group_col": group_col_name or "unknown",
+            "protected_group_distribution": group_dist,
+        }
+
+        # Log dataset summary
         logger.info(
-            "Splits — train: %d  test: %d  features: %d  source: %s",
+            "Dataset loaded — source=%s  rows=%d  features=%d  "
+            "train=%d  test=%d",
+            self._source, n_sampled, self._n_features,
             len(self._y_train), len(self._y_test),
-            self._n_features, self._source,
         )
+        logger.info("Class distribution (raw labels): %s", class_dist)
+        logger.info(
+            "Binary label distribution: normal=%d  attack=%d",
+            binary_dist["normal"], binary_dist["attack"],
+        )
+        logger.info(
+            "Protected group (%s) distribution: %s",
+            group_col_name or "unknown", group_dist,
+        )
+
         return (
             self._X_train, self._X_test,
             self._y_train, self._y_test,
@@ -574,7 +651,8 @@ class EdgeIIoTLoader:
             ``X_train``, ``y_train``, ``groups_train``,
             ``X_val``, ``y_val``, ``groups_val``,
             ``X_test``, ``y_test``, ``groups_test``,
-            ``n_classes``, ``n_features``, ``source``.
+            ``n_classes``, ``n_features``, ``source``,
+            ``dataset_info``.
         """
         if self._X_train is None:
             self.load(file_path=file_path)
@@ -615,4 +693,5 @@ class EdgeIIoTLoader:
             "n_classes":    2,
             "n_features":   self._n_features,
             "source":       self._source,
+            "dataset_info": self.dataset_info,
         }
