@@ -56,9 +56,12 @@ def parse_args():
     p.add_argument("--skip-pareto", action="store_true",
                    help="Skip 25-run Pareto grid (saves ~5x time)")
     p.add_argument("--use_real_data", action="store_true",
-                   help="Load real Edge-IIoT dataset instead of synthetic demo data")
+                   help="Load a real IoT dataset instead of synthetic demo data")
     p.add_argument("--real_data_path", default=None,
-                   help="Path to Edge-IIoT CSV file (required when --use_real_data is set)")
+                   help="Path to real IoT CSV file (required when --use_real_data is set)")
+    p.add_argument("--real_dataset", default="edge_iiot",
+                   choices=["edge_iiot", "ton_iot"],
+                   help="Which real-world dataset to load (default: edge_iiot)")
     p.add_argument("--baseline", default=None, choices=["joint_dp_fair"],
                    help="Run an additional strong baseline alongside EAGF. "
                         "Supported: joint_dp_fair")
@@ -529,18 +532,19 @@ def main():
     config["training"]["epochs"] = args.epochs
 
     if args.use_real_data:
-        from src.utils.real_data_loader import RealREIoTDataLoader
+        from src.utils.real_iot_loader import RealIoTLoader
         real_data_path = args.real_data_path
         if not real_data_path:
             raise ValueError(
                 "--real_data_path must be specified when using --use_real_data.\n"
-                "Download the Edge-IIoT dataset and pass its CSV path via --real_data_path."
+                f"Download the {getattr(args, 'real_dataset', 'edge_iiot')} dataset "
+                "and pass its CSV path via --real_data_path."
             )
-        print(f"  Loading real Edge-IIoT dataset from: {real_data_path}")
-        loader = RealREIoTDataLoader(seed=args.seeds[0])
-        loader.load_edge_iiot_data(real_data_path)
-        dataset = loader.to_dataset_dict()
-        print(f"  Real Edge-IIoT dataset loaded (source={dataset['source']})")
+        real_dataset = getattr(args, "real_dataset", "edge_iiot")
+        print(f"  Loading real {real_dataset} dataset from: {real_data_path}")
+        loader = RealIoTLoader(dataset=real_dataset, seed=args.seeds[0])
+        dataset = loader.load(file_path=real_data_path)
+        print(f"  Real dataset loaded (source={dataset['source']})")
     else:
         from src.utils.data_loader import load_biometric_dataset
         demo = (args.data_root is None)

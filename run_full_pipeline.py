@@ -39,6 +39,7 @@ REQUIRED_METRICS = [
     "accuracy", "recall_parity", "clarity",
     "privacy", "accountability", "trust_index",
 ]
+CALIBRATION_METRICS = ["ece", "brier_score"]
 SYSTEM_METRICS = ["inference_time_ms", "memory_usage_mb", "energy_overhead_joules"]
 RESULTS_DIR = "results"
 FIGURES_DIR = "figures"
@@ -56,8 +57,8 @@ def parse_args():
     p.add_argument("--seeds", nargs="+", type=int, default=None,
                    help="Override seed list (default: 42–51)")
     p.add_argument("--epochs", type=int, default=50)
-    p.add_argument("--config", default="configs/biometric_default.yaml",
-                   help="Path to biometric YAML config file passed to run_eagf.py")
+    p.add_argument("--config", default="configs/reiot_default.yaml",
+                   help="Path to YAML config file passed to run_eagf.py (default: RE-IoT)")
     p.add_argument("--use_real_data", action="store_true",
                    help="Also run a real-data pass (requires --real_data_path)")
     p.add_argument("--real_data_path", default=None)
@@ -248,7 +249,7 @@ def generate_final_report(output_dir, figures_dir, seeds, report_path):
 
     bio_out = os.path.join(output_dir, "biometric")
     main_csv_path = os.path.join(bio_out, "main_results.csv")
-    all_metrics = REQUIRED_METRICS + SYSTEM_METRICS
+    all_metrics = REQUIRED_METRICS + CALIBRATION_METRICS + SYSTEM_METRICS
 
     # ── Collect per-variant aggregated stats from per-seed JSONs ────────────
     variant_data = {}
@@ -319,6 +320,39 @@ def generate_final_report(output_dir, figures_dir, seeds, report_path):
             )
         lines += [""]
     lines.append("")
+
+    # ── 2b. Calibration metrics ───────────────────────────────────────────────
+    lines += ["# 2b. CALIBRATION METRICS (ECE and Brier Score)", ""]
+    lines.append(
+        "  ECE (Expected Calibration Error): lower is better, 0 = perfect calibration."
+    )
+    lines.append(
+        "  Brier Score: mean squared error between predicted prob and outcome, lower is better."
+    )
+    lines += [""]
+    lines.append(
+        f"  {'Model':<18} {'ECE (mean)':>12} {'ECE (std)':>12} "
+        f"{'Brier (mean)':>14} {'Brier (std)':>12}"
+    )
+    lines.append("  " + "-" * 72)
+    for variant_key, label in [
+        ("baseline", "Baseline"), ("eagf", "EAGF"), ("joint_dp_fair", "Joint DP+Fair")
+    ]:
+        ece_vals = variant_data[variant_key].get("ece", [])
+        bs_vals  = variant_data[variant_key].get("brier_score", [])
+        ece_mu, ece_std = (
+            (float(np.mean(ece_vals)), float(np.std(ece_vals, ddof=1) if len(ece_vals) > 1 else 0.0))
+            if ece_vals else (float("nan"), float("nan"))
+        )
+        bs_mu, bs_std = (
+            (float(np.mean(bs_vals)), float(np.std(bs_vals, ddof=1) if len(bs_vals) > 1 else 0.0))
+            if bs_vals else (float("nan"), float("nan"))
+        )
+        lines.append(
+            f"  {label:<18} {_fmt(ece_mu):>12} {_fmt(ece_std):>12} "
+            f"{_fmt(bs_mu):>14} {_fmt(bs_std):>12}"
+        )
+    lines += ["", ""]
 
     # ── 3. Trade-off analysis ─────────────────────────────────────────────────
     lines += ["# 3. TRADE-OFF ANALYSIS", ""]
