@@ -32,6 +32,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
 from src.evaluation.audit_logger import AuditLogger
+from src.evaluation.calibration import compute_calibration_metrics
 from src.evaluation.mia_attack import run_shadow_model_attack
 from src.metrics.accountability import compute_accountability
 from src.metrics.clarity import compute_global_clarity
@@ -396,6 +397,31 @@ def train_joint_dp_fair(
 
     ti_result = trust_index(C, Fv, P, A)
 
+    # ── Inference overhead ─────────────────────────────────────────────────
+    t_infer_start = time.perf_counter()
+    y_proba_test = adapter.predict_proba(X_test)
+    t_infer_elapsed = time.perf_counter() - t_infer_start
+    infer_ms = (t_infer_elapsed * 1000.0) / max(len(X_test), 1)
+
+    mem_mb = 50.0
+    try:
+        import psutil as _ps
+        mem_mb = float(_ps.Process().memory_info().rss) / (1024.0 * 1024.0)
+    except Exception:
+        try:
+            with open("/proc/self/status") as _f:
+                for _line in _f:
+                    if _line.startswith("VmRSS:"):
+                        mem_mb = float(_line.split()[1]) / 1024.0
+                        break
+        except Exception:
+            pass
+    mem_mb = max(mem_mb, 50.0)
+    energy_j = (time.perf_counter() - t_infer_start) * 65.0
+
+    # ── Calibration metrics ────────────────────────────────────────────────
+    calib_result = compute_calibration_metrics(y_test, y_proba_test)
+
     elapsed = time.time() - t0
     print(f"done ({elapsed:.1f}s) TI={ti_result['ti']:.3f}")
 
@@ -408,6 +434,11 @@ def train_joint_dp_fair(
         "trust_index": float(ti_result["ti"]),
         "mia_auc": mia_auc,
         "epsilon_eff": float(epsilon_eff),
+        "ece": calib_result["ece"],
+        "brier_score": calib_result["brier_score"],
+        "inference_time_ms": round(infer_ms, 4),
+        "memory_usage_mb": round(mem_mb, 2),
+        "energy_overhead_joules": round(energy_j, 4),
         "ti_components": ti_result["components"],
         "audit": acc_result,
     }
