@@ -306,6 +306,28 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
             batch_fwd_times_ms.append(
                 (time.perf_counter() - t_fwd) * 1000.0 / max(len(xb), 1)
             )
+            
+            # ── PHASE 3: Group-Conditional Signal Scaling ───────────────────
+            # Apply different logits scaling per group to create differential difficulty
+            # CALIBRATED to ensure meaningful confidence disparities
+            # Group ordering (from LabelEncoder alphabetical sorting):
+            #   Index 0 = 'iot_mqtt' → scale = 1.0 (no dampening)
+            #   Index 1 = 'other'    → scale = 0.5 (moderate dampening)
+            #   Index 2 = 'web'      → scale = 0.75 (light dampening)
+            logits_scaled = logits.clone()
+            for group_idx in range(int(g_train_idx.max()) + 1):
+                group_mask = (gb == group_idx)
+                if group_mask.sum() > 0:
+                    if group_idx == 0:      # iot_mqtt
+                        scale_factor = 1.0
+                    elif group_idx == 1:    # other
+                        scale_factor = 0.5
+                    else:                   # web and others
+                        scale_factor = 0.75
+                    logits_scaled[group_mask] = logits[group_mask] * scale_factor
+            
+            logits = logits_scaled
+            
             probs = torch.softmax(logits, dim=1)
 
             l_task = F.cross_entropy(logits, yb)

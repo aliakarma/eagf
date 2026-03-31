@@ -139,7 +139,7 @@ def run_pareto_search(config, lambda_rp_range, lambda_c_range, n_steps,
     if ti_spread <= MIN_TI_SPREAD:
         print(f"  WARNING: Pareto TI spread {ti_spread:.3f} ≤ {MIN_TI_SPREAD} — trade-offs are weak.")
     else:
-        print(f"  ✓ Pareto spread {ti_spread:.3f} > {MIN_TI_SPREAD} — real trade-offs confirmed.")
+        print(f"  [OK] Pareto spread {ti_spread:.3f} > {MIN_TI_SPREAD} -- real trade-offs confirmed.")
     return {"pareto_front": front, "best": best, "all_results": all_results,
             "ti_spread": ti_spread}
 

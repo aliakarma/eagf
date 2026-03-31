@@ -186,11 +186,24 @@ def run_biometric_main(config, dataset, seeds, output_dir):
     return main_csv
 
 
-def run_pareto(config, dataset, seed, output_dir):
-    """Run 4×3=12-point Pareto grid search with explicit lambda values."""
+def run_pareto(config, dataset, seed, output_dir, fast_mode=False):
+    """Run Pareto grid search with explicit lambda values.
+    
+    When fast_mode=True, uses a reduced 2×2 grid (4 points) instead of 4×3=12 points.
+    """
     from src.training.pareto_trainer import run_pareto_search
 
     banner("STEP 4 — Pareto-Front Hyperparameter Search")
+    
+    if fast_mode:
+        # PHASE 7: Runtime optimization - reduced grid for smoke testing
+        lambda_rp_vals = [0.1, 0.5]
+        lambda_c_vals = [0.1, 0.5]
+        print(f"  Fast mode: Using reduced 2×2 Pareto grid (4 points)")
+    else:
+        lambda_rp_vals = [0.01, 0.1, 0.5, 1.0]
+        lambda_c_vals = [0.01, 0.1, 0.5]
+    
     return run_pareto_search(
         config=config,
         lambda_rp_range=(1e-3, 1.0),
@@ -200,8 +213,8 @@ def run_pareto(config, dataset, seed, output_dir):
         device="cpu",
         output_dir=os.path.join(output_dir, "pareto"),
         dataset=dataset,
-        lambda_rp_values=[0.01, 0.1, 0.5, 1.0],
-        lambda_c_values=[0.01, 0.1, 0.5],
+        lambda_rp_values=lambda_rp_vals,
+        lambda_c_values=lambda_c_vals,
     )
 
 
@@ -329,9 +342,9 @@ def print_summary(output_dir):
             test_name = "Wilcoxon" if "wilcoxon" in ti_stat else "Paired t-test"
             print(f"\n  Statistical tests ({n_rep} seeds):")
             print(f"    Accuracy (z-test):        p={acc_test.get('p_value',1.0):.4f} "
-                  f"({'not significant' if acc_test.get('p_value',1)>0.05 else 'SIGNIFICANT ✓'})")
+                  f"({'not significant' if acc_test.get('p_value',1)>0.05 else 'SIGNIFICANT [OK]'})")
             print(f"    Trust Index ({test_name}): p={ti_test.get('p_value',1.0):.4f} "
-                  f"({'SIGNIFICANT ✓' if ti_test.get('p_value',1)<0.05 else 'not significant'})")
+                  f"({'SIGNIFICANT [OK]' if ti_test.get('p_value',1)<0.05 else 'not significant'})")
             if "note" in ti_test:
                 print(f"    Note: {ti_test['note']}")
             # Show absolute TI improvement
@@ -410,9 +423,9 @@ def validate_and_print_final_results(
     print(f"  Baseline privacy mean:   {b_priv:.4f}  (saturated: {len(sat_b)}/{len(b_priv_vals)})")
     print(f"  EAGF privacy mean:       {e_priv:.4f}  (saturated: {len(sat_e)}/{len(e_priv_vals)})")
     if e_priv > b_priv:
-        print(f"  ✓ EAGF privacy ({e_priv:.4f}) > baseline ({b_priv:.4f})")
+        print(f"  [OK] EAGF privacy ({e_priv:.4f}) > baseline ({b_priv:.4f})")
     else:
-        print(f"  ✗ FAILED: EAGF privacy ({e_priv:.4f}) should be > baseline ({b_priv:.4f})")
+        print(f"  [FAIL] EAGF privacy ({e_priv:.4f}) should be > baseline ({b_priv:.4f})")
 
     # ── 3. Accountability validation ─────────────────────────────────────
     print("\n[VALIDATION 2 — Accountability Not Constant]")
@@ -424,9 +437,9 @@ def validate_and_print_final_results(
     print(f"  EAGF    accountability mean:   {e_acct:.4f} ± {_std(eagf_results,'accountability'):.4f}")
     print(f"  Combined std (both variants):  {acct_std:.4f}")
     if acct_std > 0:
-        print(f"  ✓ Accountability is NOT constant (std={acct_std:.4f} > 0)")
+        print(f"  [OK] Accountability is NOT constant (std={acct_std:.4f} > 0)")
     else:
-        print(f"  ✗ FAILED: Accountability is constant (std=0)")
+        print(f"  [FAIL] Accountability is constant (std=0)")
 
     # ── 4. Clarity validation ────────────────────────────────────────────
     print("\n[VALIDATION 3 — Clarity (post-hoc, not directly optimized)]")
@@ -442,12 +455,12 @@ def validate_and_print_final_results(
     # especially with short training runs.  A tolerance of ±0.02 is acceptable.
     _CLARITY_TOLERANCE = 0.02
     if delta_c > 0.05:
-        print(f"  ✓ Clarity improvement {delta_c:.4f} > 0.05")
+        print(f"  [OK] Clarity improvement {delta_c:.4f} > 0.05")
     elif delta_c >= -_CLARITY_TOLERANCE:
-        print(f"  ✓ Clarity within tolerance (Δ={delta_c:+.4f}, tol={_CLARITY_TOLERANCE})")
+        print(f"  [OK] Clarity within tolerance (Delta={delta_c:+.4f}, tol={_CLARITY_TOLERANCE})")
         print(f"    Note: clarity is evaluated post-hoc and not directly optimized.")
     else:
-        print(f"  ✗ Clarity degradation {delta_c:.4f} exceeds tolerance ±{_CLARITY_TOLERANCE} — WARNING")
+        print(f"  [WARN] Clarity degradation {delta_c:.4f} exceeds tolerance {_CLARITY_TOLERANCE} -- WARNING")
         # Do not hard-assert on clarity alone; it is one of four pillars and
         # small negative Δ may reflect dataset noise rather than a design flaw.
         if strict_assertions and delta_c < -0.10:
@@ -475,9 +488,9 @@ def validate_and_print_final_results(
             print(f"  max(TI) = {ti_max:.4f}")
             print(f"  ΔTI     = {ti_spread:.4f}")
             if ti_spread > 0.05:
-                print(f"  ✓ Pareto spread {ti_spread:.4f} > 0.05 — real trade-offs confirmed")
+                print(f"  [OK] Pareto spread {ti_spread:.4f} > 0.05 -- real trade-offs confirmed")
             else:
-                print(f"  ✗ Pareto spread {ti_spread:.4f} ≤ 0.05 — trade-offs too flat")
+                print(f"  [FAIL] Pareto spread {ti_spread:.4f} <= 0.05 -- trade-offs too flat")
     else:
         print("  Pareto results not available (--skip-pareto).")
 
@@ -500,9 +513,9 @@ def validate_and_print_final_results(
         print(f"  summary.txt:   baseline TI={sum_b:.6f}, EAGF TI={sum_e:.6f}, improvement={sum_imp:.2f}%")
         print(f"  Recomputed:    baseline TI={recomp_b:.6f}, EAGF TI={recomp_e:.6f}, improvement={recomp_imp:.2f}%")
         if match:
-            print(f"  ✓ summary.txt matches recomputed values")
+            print(f"  [OK] summary.txt matches recomputed values")
         else:
-            print(f"  ✗ summary.txt DIVERGES from recomputed values")
+            print(f"  [FAIL] summary.txt DIVERGES from recomputed values")
     else:
         print("  summary.txt not found.")
 
@@ -518,7 +531,7 @@ def validate_and_print_final_results(
             fpr_vals = [row.get(f"{c}_fpr_mean", row.get("recall_parity_mean", "n/a"))
                         for c in node_classes]
             print(f"  {model}: urban={fpr_vals[0]}  periurban={fpr_vals[1]}  rural={fpr_vals[2]}")
-        print(f"  ✓ FPR values computed from real CSV data (no hardcoding)")
+        print(f"  [OK] FPR values computed from real CSV data (no hardcoding)")
     else:
         print("  RE-IoT results not available (--skip-reiot or no data).")
 
@@ -551,6 +564,9 @@ def main():
         if real_dataset == "edge_iiot":
             from src.utils.edge_iiot_loader import EdgeIIoTLoader
             max_rows = int(config.get("data", {}).get("max_rows", 150_000))
+            if args.fast:
+                max_rows = min(max_rows, 20_000)
+                print(f"  Fast real-data mode: limiting max_rows to {max_rows}")
             data_dir = config.get("data", {}).get("data_dir", "data/real_iot")
             protected_group = config.get("data", {}).get(
                 "protected_group", "protocol_type"
@@ -577,7 +593,7 @@ def main():
                     "https://ieee-dataport.org/documents/edge-iiotset\n"
                     "or pass --allow_synthetic_fallback for offline smoke-testing."
                 )
-            print("✅ USING REAL DATASET: Edge-IIoTset")
+            print("[REAL] USING REAL DATASET: Edge-IIoTset")
             # Print dataset confirmation
             info = dataset.get("dataset_info", {})
             print(f"  Dataset confirmed: source={dataset['source']}")
@@ -637,7 +653,7 @@ def main():
     # ── Step 4: Pareto search (optional) ─────────────────────────────────
     pareto_result = None
     if not args.skip_pareto:
-        pareto_result = run_pareto(config, dataset, args.seeds[0], bio_out)
+        pareto_result = run_pareto(config, dataset, args.seeds[0], bio_out, fast_mode=args.fast)
     else:
         print("\n  Skipping Pareto search (--skip-pareto).")
 
