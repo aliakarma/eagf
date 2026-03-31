@@ -21,8 +21,8 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
         rp_target: target recall-parity ratio min(recall_g)/max(recall_g).
 
     Returns:
-        Scalar torch tensor penalty = |target_rp - current_rp|.
-        Gradient is always non-zero whenever current_rp != rp_target.
+        Scalar torch tensor penalty = (target_rp - current_rp)^2.
+        Squared error provides stronger gradients for fairness optimization.
     """
     unique_groups = torch.unique(group_labels)
     recalls = []
@@ -45,11 +45,12 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
 
     recalls_t = torch.stack(recalls)
     # Compute soft recall-parity ratio: min_recall / max_recall.
-    # Use absolute deviation from target so the gradient is always non-zero
-    # whenever the current parity differs from the target.
+    # Use squared error loss to provide stronger gradients for fairness optimization.
+    # The quadratic penalty increases pressure as deviation grows.
     current_rp = recalls_t.min() / (recalls_t.max() + 1e-8)
     target_t = torch.tensor(float(rp_target), device=y_true.device, dtype=current_rp.dtype)
-    fairness_loss = torch.abs(target_t - current_rp)
+    # Use squared error loss for stronger fairness optimization
+    fairness_loss = (target_t - current_rp) ** 2
     return fairness_loss
 
 
