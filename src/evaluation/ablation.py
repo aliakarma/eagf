@@ -78,7 +78,7 @@ def aggregate_ablation(results_dir, models, seeds, output_path):
                 writer.writeheader()
                 writer.writerows(rows)
 
-    print(f"Ablation summary → {output_path}")
+    print(f"Ablation summary -> {output_path}")
     return rows
 
 

@@ -67,7 +67,7 @@ def generate_report(biometric_results_dir, reiot_results_dir, output_path):
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w") as f:
         f.write("\n".join(str(l).rstrip() for l in lines))
-    print(f"Report → {output_path}")
+    print(f"Report -> {output_path}")
 
 
 def parse_args():

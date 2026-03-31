@@ -9,13 +9,19 @@ from typing import Dict, Optional
 def _recall(y_true, y_pred, pos_label=1):
     tp = np.sum((y_pred == pos_label) & (y_true == pos_label))
     fn = np.sum((y_pred != pos_label) & (y_true == pos_label))
-    return tp / (tp + fn + 1e-12)
+    denom = tp + fn
+    if denom <= 0:
+        return np.nan
+    return tp / denom
 
 
 def _fpr(y_true, y_pred, pos_label=1):
     fp = np.sum((y_pred == pos_label) & (y_true != pos_label))
     tn = np.sum((y_pred != pos_label) & (y_true != pos_label))
-    return fp / (fp + tn + 1e-12)
+    denom = fp + tn
+    if denom <= 0:
+        return np.nan
+    return fp / denom
 
 
 def recall_parity(y_true, y_pred, group_labels, reference_group,
@@ -29,6 +35,15 @@ def recall_parity(y_true, y_pred, group_labels, reference_group,
             recalls[str(g)] = 0.0
         else:
             recalls[str(g)] = _recall(y_true[mask], y_pred[mask], pos_label)
+
+    recalls = {k: float(v) for k, v in recalls.items() if not np.isnan(v)}
+    if len(recalls) < 2:
+        return {
+            "recall_parity": 1.0,
+            "rp_gen": 1.0,
+            "rp_pairs": {},
+            "per_group_recall": recalls,
+        }
 
     ref_key = str(reference_group)
     ref_recall = recalls.get(ref_key, 1e-12)
@@ -56,6 +71,10 @@ def false_positive_rate_parity(y_true, y_pred, group_labels,
             fprs[str(g)] = 0.0
         else:
             fprs[str(g)] = _fpr(y_true[mask], y_pred[mask], pos_label)
+
+    fprs = {k: float(v) for k, v in fprs.items() if not np.isnan(v)}
+    if len(fprs) < 2:
+        return {"fprp": 1.0, "fprp_pairs": {}, "per_group_fpr": fprs}
 
     ref_key = str(reference_group)
     ref_fpr = fprs.get(ref_key, 1e-12)

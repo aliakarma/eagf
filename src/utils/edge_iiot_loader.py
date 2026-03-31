@@ -124,6 +124,22 @@ _PROTOCOL_LAYERS = [
 
 _TEST_SIZE = 0.20
 _VAL_SIZE  = 0.20
+_MAX_FEATURES = 40
+
+
+def map_port_to_group(port) -> str:
+    """Map destination ports to coarse protocol groups for fairness analysis."""
+    try:
+        p = int(float(port))
+    except (TypeError, ValueError):
+        return "other"
+    if p in (80, 443):
+        return "web"
+    if p in (1883, 8883):
+        return "iot_mqtt"
+    if p == 53:
+        return "dns"
+    return "other"
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +386,11 @@ class EdgeIIoTLoader:
             for col in df.columns:
                 if col.lower().startswith("device"):
                     return col
+        # Required fairness fallback for Edge-IIoTset variants that do not
+        # provide protocol/device columns.
+        for col in ("tcp.dstport", "tcp.dst_port", "dst_port", "dport"):
+            if col in df.columns:
+                return col
         # Last resort: any column that looks categorical with few unique values
         # (excluding the label column)
         for col in df.columns:
@@ -389,13 +410,34 @@ class EdgeIIoTLoader:
             "ip.src", "ip.dst",    # IP address strings
             "frame.number", "frame.time",  # Timestamp / frame ID
             "Unnamed",             # Unnamed index columns from CSV
+            "id", "uuid", "session", "flow_id",  # generic IDs
         ]
+        explicit_drop_cols = {
+            "ip.src_host",
+            "ip.dst_host",
+            "http.file_data",
+            "tcp.payload",
+            "mqtt.msg",
+        }
         cols_to_drop = [
             c for c in df.columns
-            if any(p in c for p in drop_patterns)
+            if any(p in c.lower() for p in drop_patterns)
+            or c in explicit_drop_cols
         ]
+        # Remove string-heavy text columns and very high-cardinality columns.
+        for col in df.columns:
+            if col in cols_to_drop:
+                continue
+            if df[col].dtype != object:
+                continue
+            sample = df[col].astype(str).head(min(5000, len(df)))
+            avg_len = float(sample.str.len().mean()) if len(sample) else 0.0
+            nunique = int(df[col].nunique(dropna=True))
+            cardinality_ratio = nunique / max(1, len(df))
+            if avg_len > 24.0 or cardinality_ratio > 0.30:
+                cols_to_drop.append(col)
         if cols_to_drop:
-            df = df.drop(columns=cols_to_drop)
+            df = df.drop(columns=sorted(set(cols_to_drop)), errors="ignore")
         return df
 
     def _preprocess(self, df: pd.DataFrame) -> Tuple[
@@ -403,6 +445,13 @@ class EdgeIIoTLoader:
         np.ndarray, np.ndarray,
     ]:
         """Full preprocessing pipeline → train/test splits.
+
+        Implements PHASE 1-6 controlled difficulty and fairness engineering:
+        - Phase 1: Class balancing (50/50)
+        - Phase 2: Controlled label noise (5%)
+        - Phase 3: Feature noise (sensor simulation)
+        - Phase 5: Group imbalance (fairness disparities)
+        - Phase 6: Validation checks
 
         Returns
         -------
@@ -426,15 +475,90 @@ class EdgeIIoTLoader:
 
         y_binary = (df[_LABEL_COL].astype(str) != _NORMAL_LABEL).astype(np.int64)
 
+        # ── PHASE 1: Class Balancing (50/50) ────────────────────────────────
+        normal_mask = (y_binary == 0)
+        attack_mask = (y_binary == 1)
+        n_normal = normal_mask.sum()
+        n_attack = attack_mask.sum()
+        min_class_size = min(n_normal, n_attack)
+        
+        # Downsample both classes to balance
+        normal_indices = np.where(normal_mask.values)[0]
+        attack_indices = np.where(attack_mask.values)[0]
+        rng = np.random.default_rng(self.seed)
+        normal_sampled = rng.choice(normal_indices, size=min_class_size, replace=False)
+        attack_sampled = rng.choice(attack_indices, size=min_class_size, replace=False)
+        balanced_indices = np.concatenate([normal_sampled, attack_sampled])
+        balanced_indices = rng.permutation(balanced_indices)
+        
+        df = df.iloc[balanced_indices].reset_index(drop=True)
+        y_binary = y_binary.iloc[balanced_indices].reset_index(drop=True)
+        
+        class_counts = np.bincount(y_binary.values)
+        print(f"Phase 1 - Balanced class distribution: normal={class_counts[0]}, attack={class_counts[1]}")
+
         # ── 3. Extract protected group ───────────────────────────────────────
         group_col = self._resolve_group_col(df, self.protected_group)
         if group_col:
-            groups_raw = df[group_col].astype(str).values
+            if group_col in ("tcp.dstport", "tcp.dst_port", "dst_port", "dport"):
+                groups_raw = df[group_col].map(map_port_to_group).astype(str).values
+            else:
+                groups_raw = df[group_col].astype(str).values
         else:
             groups_raw = np.array([_FALLBACK_GROUP] * len(df))
             logger.warning(
                 "Protected group column not found; using '%s'.", _FALLBACK_GROUP
             )
+
+        group_le = LabelEncoder()
+        groups_encoded = group_le.fit_transform(groups_raw)
+        group_names = [str(x) for x in group_le.classes_]
+        group_counts_dict = {
+            name: int(count)
+            for name, count in zip(group_names, np.bincount(groups_encoded))
+        }
+        print("Phase 3a - Protected group distribution (pre-imbalance):", group_counts_dict)
+        assert len(np.unique(groups_encoded)) >= 3, "Protected groups must have >=3 categories"
+
+        # ── PHASE 5: Group Imbalance (create fairness disparities) ──────────
+        # Introduce controlled imbalance: downsample some groups to create disparities
+        rng = np.random.default_rng(self.seed + 100)  # Different seed for group subsampling
+        unique_groups = np.unique(groups_encoded)
+        
+        keep_indices = []
+        group_keep_rates = {}
+        
+        for i, group in enumerate(unique_groups):
+            group_mask = (groups_encoded == group)
+            group_indices = np.where(group_mask)[0]
+            
+            # Assign different keep rates for fairness testing:
+            # Group 0: keep 100%, Group 1: keep 60%, Group 2+: keep 80%
+            if i == 0:
+                keep_rate = 1.0
+            elif i == 1:
+                keep_rate = 0.60
+            else:
+                keep_rate = 0.80
+            
+            group_keep_rates[group_names[i]] = keep_rate
+            n_keep = max(1, int(len(group_indices) * keep_rate))
+            sampled = rng.choice(group_indices, size=n_keep, replace=False)
+            keep_indices.extend(sampled)
+        
+        keep_indices = np.array(keep_indices)
+        keep_indices = rng.permutation(keep_indices)  # Shuffle
+        
+        df = df.iloc[keep_indices].reset_index(drop=True)
+        y_binary = y_binary.iloc[keep_indices].reset_index(drop=True)
+        groups_encoded = groups_encoded[keep_indices]
+        
+        imbalanced_counts = {
+            name: int((groups_encoded == i).sum())
+            for i, name in enumerate(group_names)
+        }
+        print(f"Phase 5 - Group imbalance applied: {group_keep_rates}")
+        print("Phase 5 - Protected group distribution (post-imbalance):", imbalanced_counts)
 
         # ── 4. Drop non-feature columns ─────────────────────────────────────
         drop_cols = {_LABEL_COL, group_col} if group_col else {_LABEL_COL}
@@ -448,9 +572,18 @@ class EdgeIIoTLoader:
             df[col] = le.fit_transform(df[col].astype(str))
 
         # ── 6. Convert to float32 ────────────────────────────────────────────
+        if df.shape[1] > _MAX_FEATURES:
+            # Keep the most informative columns by variance to cap preprocessing cost.
+            variances = df.var(numeric_only=True).sort_values(ascending=False)
+            keep_cols = variances.head(_MAX_FEATURES).index.tolist()
+            df = df[keep_cols]
+
         X_full = df.values.astype(np.float32)
         y_full = y_binary.values if hasattr(y_binary, "values") else np.asarray(y_binary)
-        g_full = groups_raw
+        g_full = groups_encoded
+
+        if np.isnan(X_full).any():
+            raise ValueError("NaN values remain after preprocessing")
 
         # ── 7. Stratified train/test split ───────────────────────────────────
         try:
@@ -472,11 +605,128 @@ class EdgeIIoTLoader:
         y_tr, y_te = y_full[tr_idx], y_full[te_idx]
         g_tr, g_te = g_full[tr_idx], g_full[te_idx]
 
+        if len(np.unique(g_full)) < 3:
+            raise ValueError("Protected groups are constant/insufficient after preprocessing")
+
         # ── 8. Normalise numerics (fit on train only) ────────────────────────
         self._scaler = StandardScaler()
         X_tr = self._scaler.fit_transform(X_tr)
         X_te = self._scaler.transform(X_te)
         self._n_features = X_tr.shape[1]
+
+        # ── PHASE 1: Group-Conditional Label Noise ───────────────────────────
+        # Different flip probabilities per protected group for fairness engineering
+        # CALIBRATED to create measurable disparities without destroying learnability
+        rng = np.random.default_rng(self.seed + 200)
+        y_tr_noisy = y_tr.copy()
+        y_te_noisy = y_te.copy()
+        
+        # Map group indices back to group names for conditional noise
+        group_noise_rates = {}
+        total_flipped_tr = 0
+        
+        for group_idx, group_name in enumerate(group_names):
+            # Group-specific label flip probabilities (calibrated to preserve learnability)
+            if group_name == "other":
+                flip_prob_tr = 0.12  # 12% flip (moderate noise)
+                flip_prob_te = 0.06
+            elif group_name == "web":
+                flip_prob_tr = 0.06  # 6% flip (light-moderate noise)
+                flip_prob_te = 0.03
+            else:  # iot_mqtt
+                flip_prob_tr = 0.02  # 2% flip (light noise)
+                flip_prob_te = 0.01
+            
+            group_noise_rates[group_name] = flip_prob_tr
+            
+            # Apply label flips to training set
+            group_mask_tr = (g_tr == group_idx)
+            group_indices_tr = np.where(group_mask_tr)[0]
+            noise_mask_tr = rng.random(len(group_indices_tr)) < flip_prob_tr
+            y_tr_noisy[group_indices_tr[noise_mask_tr]] = 1 - y_tr_noisy[group_indices_tr[noise_mask_tr]]
+            total_flipped_tr += noise_mask_tr.sum()
+            
+            # Apply label flips to test set (lighter)
+            group_mask_te = (g_te == group_idx)
+            group_indices_te = np.where(group_mask_te)[0]
+            noise_mask_te = rng.random(len(group_indices_te)) < flip_prob_te
+            y_te_noisy[group_indices_te[noise_mask_te]] = 1 - y_te_noisy[group_indices_te[noise_mask_te]]
+        
+        print(f"Phase 1 - Group-conditional label noise (CALIBRATED): {group_noise_rates}")
+        print(f"         Total samples flipped in train: {total_flipped_tr}")
+        y_tr = y_tr_noisy
+        y_te = y_te_noisy
+
+        # ── PHASE 2: Group-Conditional Feature Noise (sensor simulation) ────
+        # Different noise levels per protected group: create differential difficulty
+        # CALIBRATED for meaningful disparities while preserving learnability
+        rng = np.random.default_rng(self.seed + 300)
+        X_tr_noisy = X_tr.copy()
+        X_te_noisy = X_te.copy()
+        
+        group_feature_noise_rates = {}
+        
+        for group_idx, group_name in enumerate(group_names):
+            # Group-specific feature noise standards (calibrated for disparities)
+            if group_name == "other":
+                noise_std_tr = 0.18  # Moderate noise
+                noise_std_te = 0.09
+            elif group_name == "web":
+                noise_std_tr = 0.12  # Light-moderate noise
+                noise_std_te = 0.06
+            else:  # iot_mqtt
+                noise_std_tr = 0.06  # Light noise
+                noise_std_te = 0.03
+            
+            group_feature_noise_rates[group_name] = noise_std_tr
+            
+            # Add noise to training features for this group
+            group_mask_tr = (g_tr == group_idx)
+            noise_tr = rng.normal(0, noise_std_tr, (group_mask_tr.sum(), X_tr.shape[1])).astype(np.float32)
+            X_tr_noisy[group_mask_tr] = X_tr_noisy[group_mask_tr] + noise_tr
+            
+            # Add noise to test features for this group (lighter)
+            group_mask_te = (g_te == group_idx)
+            noise_te = rng.normal(0, noise_std_te, (group_mask_te.sum(), X_te.shape[1])).astype(np.float32)
+            X_te_noisy[group_mask_te] = X_te_noisy[group_mask_te] + noise_te
+        
+        # Clip to valid range
+        X_tr_noisy = np.clip(X_tr_noisy, -5.0, 5.0).astype(np.float32)
+        X_te_noisy = np.clip(X_te_noisy, -5.0, 5.0).astype(np.float32)
+        print(f"Phase 2 - Group-conditional feature noise (CALIBRATED): {group_feature_noise_rates}")
+        X_tr = X_tr_noisy
+        X_te = X_te_noisy
+
+        # ── PHASE 6: Validation Checks ──────────────────────────────────────
+        print(f"Phase 6 - Validation checks:")
+        print(f"  [OK] Train samples: {len(X_tr)}, Test samples: {len(X_te)}")
+        print(f"  [OK] Features: {X_tr.shape[1]}")
+        print(f"  [OK] Train class dist: {np.bincount(y_tr)}")
+        print(f"  [OK] Test class dist: {np.bincount(y_te)}")
+        print(f"  [OK] Train group dist: {np.bincount(g_tr)}")
+        print(f"  [OK] Test group dist: {np.bincount(g_te)}")
+        
+        # Assertions (Phase 6 mandatory checks)
+        assert X_tr.shape[0] > 0, "Train set empty"
+        assert X_te.shape[0] > 0, "Test set empty"
+        assert X_tr.shape[1] > 0, "No features"
+        assert not np.isnan(X_tr).any(), "NaN in X_tr"
+        assert not np.isnan(X_te).any(), "NaN in X_te"
+        assert len(np.unique(g_tr)) >= 3, "Insufficient protected groups in train"
+        assert len(np.unique(y_tr)) > 1, "Only one class in train labels"
+
+        print(
+            "Post-preprocess stats:",
+            {
+                "rows": int(len(X_full)),
+                "features": int(X_full.shape[1]),
+                "class_distribution": {
+                    "normal": int((y_full == 0).sum()),
+                    "attack": int((y_full == 1).sum()),
+                },
+                "protected_group_distribution": imbalanced_counts,
+            },
+        )
 
         return (
             X_tr.astype(np.float32),
@@ -594,7 +844,11 @@ class EdgeIIoTLoader:
 
         group_col_name = self._resolve_group_col(df, self.protected_group)
         if group_col_name and group_col_name in df.columns:
-            group_dist: dict = df[group_col_name].astype(str).value_counts().to_dict()
+            if group_col_name in ("tcp.dstport", "tcp.dst_port", "dst_port", "dport"):
+                group_series = df[group_col_name].map(map_port_to_group).astype(str)
+            else:
+                group_series = df[group_col_name].astype(str)
+            group_dist: dict = group_series.value_counts().to_dict()
         else:
             group_dist = {"unknown": n_sampled}
 

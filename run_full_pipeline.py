@@ -162,6 +162,8 @@ def run_experiments(seeds, epochs, args):
         "--output", args.output,
         "--baseline", "joint_dp_fair",
     ]
+    if args.fast:
+        cmd.append("--fast")
     if args.skip_pareto:
         cmd.append("--skip-pareto")
     if args.skip_reiot:

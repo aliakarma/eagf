@@ -59,7 +59,7 @@ def aggregate_results(results_dir, seeds, output_path, fairness_criterion="recal
         rows.append(row)
 
     _write_csv(rows, output_path)
-    print(f"Results → {output_path}")
+    print(f"Results -> {output_path}")
     return rows
 
 

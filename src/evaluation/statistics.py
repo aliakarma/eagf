@@ -122,7 +122,7 @@ def run_all_tests(baseline_dir, eagf_dir, seeds, output_path, n_test=1500):
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
-    print(f"Statistical tests → {output_path}")
+    print(f"Statistical tests -> {output_path}")
     return results
 
 
