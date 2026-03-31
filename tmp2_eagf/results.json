@@ -1,0 +1,16 @@
+{
+  "accuracy": 0.6839622641509434,
+  "fpr_parity": 0.7857142857142857,
+  "recall_parity": 0.7857142857142857,
+  "clarity": 0.748281337158392,
+  "privacy": 0.24652549342105262,
+  "accountability": 0.6666666666666666,
+  "trust_index": 0.6117969919636408,
+  "mia_auc": 0.5069490131578948,
+  "epsilon_eff": Infinity,
+  "ece": 0.09617594677411893,
+  "brier_score": 0.17914235552119753,
+  "inference_time_ms": 0.0046,
+  "memory_usage_mb": 308.33,
+  "energy_overhead_joules": 0.0638
+}

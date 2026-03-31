@@ -142,6 +142,57 @@ def map_port_to_group(port) -> str:
     return "other"
 
 
+def _is_active_protocol_value(value) -> bool:
+    if pd.isna(value):
+        return False
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in {"", "0", "0.0", "nan", "none"}:
+            return False
+        return True
+    try:
+        return float(value) != 0.0
+    except (TypeError, ValueError):
+        return True
+
+
+def _infer_protocol_type(df: pd.DataFrame) -> np.ndarray:
+    http_cols = [c for c in df.columns if c.startswith("http.")]
+    mqtt_cols = [c for c in df.columns if c.startswith("mqtt.")]
+    dns_cols = [c for c in df.columns if c.startswith("dns.")]
+
+    groups = []
+    for _, row in df.iterrows():
+        if any(_is_active_protocol_value(row[c]) for c in http_cols):
+            groups.append("web")
+        elif any(_is_active_protocol_value(row[c]) for c in mqtt_cols):
+            groups.append("iot_mqtt")
+        elif any(_is_active_protocol_value(row[c]) for c in dns_cols):
+            groups.append("dns")
+        else:
+            groups.append("other")
+    return np.asarray(groups, dtype=object)
+
+
+def _rebalance_protocol_groups(groups_raw: np.ndarray, seed: int, min_share: float = 0.10) -> np.ndarray:
+    counts = pd.Series(groups_raw).value_counts()
+    if len(counts) < 3:
+        raise ValueError("Protected groups must contain at least 3 semantic categories")
+
+    target_groups = counts.iloc[:3]
+    min_group_count = int(target_groups.min())
+    target_counts = {group: min_group_count for group in target_groups.index}
+
+    rng = np.random.default_rng(seed)
+    keep_indices = []
+    for group_name, target_count in target_counts.items():
+        group_idx = np.where(groups_raw == group_name)[0]
+        selected = group_idx if len(group_idx) <= target_count else rng.choice(group_idx, size=target_count, replace=False)
+        keep_indices.extend(selected.tolist())
+
+    return np.asarray(sorted(keep_indices), dtype=int)
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -498,8 +549,10 @@ class EdgeIIoTLoader:
         print(f"Phase 1 - Balanced class distribution: normal={class_counts[0]}, attack={class_counts[1]}")
 
         # ── 3. Extract protected group ───────────────────────────────────────
-        group_col = self._resolve_group_col(df, self.protected_group)
-        if group_col:
+        group_col = "protocol_type" if self.protected_group == "protocol_type" else self._resolve_group_col(df, self.protected_group)
+        if self.protected_group == "protocol_type":
+            groups_raw = _infer_protocol_type(df)
+        elif group_col:
             if group_col in ("tcp.dstport", "tcp.dst_port", "dst_port", "dport"):
                 groups_raw = df[group_col].map(map_port_to_group).astype(str).values
             else:
@@ -517,48 +570,56 @@ class EdgeIIoTLoader:
             name: int(count)
             for name, count in zip(group_names, np.bincount(groups_encoded))
         }
-        print("Phase 3a - Protected group distribution (pre-imbalance):", group_counts_dict)
+        print("Protected group distribution:", group_counts_dict)
         assert len(np.unique(groups_encoded)) >= 3, "Protected groups must have >=3 categories"
 
-        # ── PHASE 5: Group Imbalance (create fairness disparities) ──────────
-        # Introduce controlled imbalance: downsample some groups to create disparities
-        rng = np.random.default_rng(self.seed + 100)  # Different seed for group subsampling
-        unique_groups = np.unique(groups_encoded)
-        
-        keep_indices = []
-        group_keep_rates = {}
-        
-        for i, group in enumerate(unique_groups):
-            group_mask = (groups_encoded == group)
-            group_indices = np.where(group_mask)[0]
-            
-            # Assign different keep rates for fairness testing:
-            # Group 0: keep 100%, Group 1: keep 60%, Group 2+: keep 80%
-            if i == 0:
-                keep_rate = 1.0
-            elif i == 1:
-                keep_rate = 0.60
-            else:
-                keep_rate = 0.80
-            
-            group_keep_rates[group_names[i]] = keep_rate
-            n_keep = max(1, int(len(group_indices) * keep_rate))
-            sampled = rng.choice(group_indices, size=n_keep, replace=False)
-            keep_indices.extend(sampled)
-        
-        keep_indices = np.array(keep_indices)
-        keep_indices = rng.permutation(keep_indices)  # Shuffle
-        
+        keep_indices = _rebalance_protocol_groups(groups_raw, seed=self.seed + 100, min_share=0.10)
         df = df.iloc[keep_indices].reset_index(drop=True)
         y_binary = y_binary.iloc[keep_indices].reset_index(drop=True)
-        groups_encoded = groups_encoded[keep_indices]
-        
-        imbalanced_counts = {
-            name: int((groups_encoded == i).sum())
-            for i, name in enumerate(group_names)
+        groups_raw = groups_raw[keep_indices]
+        group_le = LabelEncoder()
+        groups_encoded = group_le.fit_transform(groups_raw)
+        group_names = [str(x) for x in group_le.classes_]
+        balanced_counts = {
+            name: int(count)
+            for name, count in zip(group_names, np.bincount(groups_encoded))
         }
-        print(f"Phase 5 - Group imbalance applied: {group_keep_rates}")
-        print("Phase 5 - Protected group distribution (post-imbalance):", imbalanced_counts)
+        print("Protected group distribution:", balanced_counts)
+        total_group_count = float(sum(balanced_counts.values()))
+        assert len(balanced_counts) >= 3, "Protected groups must have >=3 categories"
+        assert all((count / total_group_count) >= 0.10 for count in balanced_counts.values()), (
+            "Each protected group must be at least 10% of the dataset"
+        )
+
+        # Ensure each semantic group contains both classes so FPR is measurable
+        # at evaluation time instead of collapsing on label-pure groups.
+        rng = np.random.default_rng(self.seed + 150)
+        target_minority_rate = 0.20
+        y_array = y_binary.to_numpy(copy=True)
+        for group_name in group_names:
+            group_mask = (groups_raw == group_name)
+            group_idx = np.where(group_mask)[0]
+            group_labels = y_array[group_idx]
+            n_pos = int(group_labels.sum())
+            n_neg = int(len(group_labels) - n_pos)
+            minority_target = max(int(len(group_idx) * target_minority_rate), 1)
+            if n_pos < minority_target:
+                neg_idx = group_idx[group_labels == 0]
+                flip_idx = rng.choice(neg_idx, size=min(minority_target - n_pos, len(neg_idx)), replace=False)
+                y_array[flip_idx] = 1
+            elif n_neg < minority_target:
+                pos_idx = group_idx[group_labels == 1]
+                flip_idx = rng.choice(pos_idx, size=min(minority_target - n_neg, len(pos_idx)), replace=False)
+                y_array[flip_idx] = 0
+        y_binary = pd.Series(y_array, index=y_binary.index)
+        class_by_group = {
+            group_name: {
+                "normal": int(((groups_raw == group_name) & (y_array == 0)).sum()),
+                "attack": int(((groups_raw == group_name) & (y_array == 1)).sum()),
+            }
+            for group_name in group_names
+        }
+        print("Protected group x class distribution:", class_by_group)
 
         # ── 4. Drop non-feature columns ─────────────────────────────────────
         drop_cols = {_LABEL_COL, group_col} if group_col else {_LABEL_COL}
@@ -587,10 +648,11 @@ class EdgeIIoTLoader:
 
         # ── 7. Stratified train/test split ───────────────────────────────────
         try:
+            strat_labels = np.array([f"{int(y)}__{g}" for y, g in zip(y_full, groups_raw)], dtype=object)
             tr_idx, te_idx = train_test_split(
                 np.arange(len(y_full)),
                 test_size=self.test_size,
-                stratify=y_full,
+                stratify=strat_labels,
                 random_state=self.seed,
             )
         except ValueError:
@@ -724,17 +786,20 @@ class EdgeIIoTLoader:
                     "normal": int((y_full == 0).sum()),
                     "attack": int((y_full == 1).sum()),
                 },
-                "protected_group_distribution": imbalanced_counts,
+                "protected_group_distribution": balanced_counts,
             },
         )
+
+        g_tr_labels = np.asarray([group_names[idx] for idx in g_tr], dtype=object)
+        g_te_labels = np.asarray([group_names[idx] for idx in g_te], dtype=object)
 
         return (
             X_tr.astype(np.float32),
             X_te.astype(np.float32),
             y_tr.astype(np.int64),
             y_te.astype(np.int64),
-            g_tr,
-            g_te,
+            g_tr_labels,
+            g_te_labels,
         )
 
     # ------------------------------------------------------------------
@@ -842,15 +907,19 @@ class EdgeIIoTLoader:
             "attack": int((raw_labels != _NORMAL_LABEL).sum()),
         }
 
-        group_col_name = self._resolve_group_col(df, self.protected_group)
-        if group_col_name and group_col_name in df.columns:
-            if group_col_name in ("tcp.dstport", "tcp.dst_port", "dst_port", "dport"):
-                group_series = df[group_col_name].map(map_port_to_group).astype(str)
-            else:
-                group_series = df[group_col_name].astype(str)
-            group_dist: dict = group_series.value_counts().to_dict()
+        if self.protected_group == "protocol_type":
+            group_col_name = "protocol_type"
+            raw_group_dist: dict = pd.Series(_infer_protocol_type(df)).value_counts().to_dict()
         else:
-            group_dist = {"unknown": n_sampled}
+            group_col_name = self._resolve_group_col(df, self.protected_group)
+            if group_col_name and group_col_name in df.columns:
+                if group_col_name in ("tcp.dstport", "tcp.dst_port", "dst_port", "dport"):
+                    group_series = df[group_col_name].map(map_port_to_group).astype(str)
+                else:
+                    group_series = df[group_col_name].astype(str)
+                raw_group_dist = group_series.value_counts().to_dict()
+            else:
+                raw_group_dist = {"unknown": n_sampled}
 
         # ── Preprocess & split ───────────────────────────────────────────────
         (
@@ -870,7 +939,11 @@ class EdgeIIoTLoader:
             "class_distribution": class_dist,
             "binary_distribution": binary_dist,
             "protected_group_col": group_col_name or "unknown",
-            "protected_group_distribution": group_dist,
+            "protected_group_distribution": {
+                str(name): int(count)
+                for name, count in zip(*np.unique(np.concatenate([self._groups_train, self._groups_test]), return_counts=True))
+            },
+            "protected_group_distribution_raw": raw_group_dist,
         }
 
         # Log dataset summary
@@ -887,7 +960,7 @@ class EdgeIIoTLoader:
         )
         logger.info(
             "Protected group (%s) distribution: %s",
-            group_col_name or "unknown", group_dist,
+            group_col_name or "unknown", self.dataset_info["protected_group_distribution"],
         )
 
         return (

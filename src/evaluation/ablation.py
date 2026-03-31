@@ -21,7 +21,7 @@ MODEL_LABELS = {
     "accountability": "M4: +Accountability only",
     "eagf":           "M5: EAGF (all pillars, joint)",
 }
-METRICS = ["accuracy", "recall_parity", "clarity", "privacy", "accountability", "trust_index"]
+METRICS = ["accuracy", "fpr_parity", "clarity", "privacy", "accountability", "trust_index"]
 
 
 def bootstrap_ci(values, n_resamples=500, ci=0.95):

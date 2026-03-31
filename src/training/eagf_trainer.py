@@ -33,7 +33,7 @@ from src.metrics.clarity import compute_global_clarity
 from src.metrics.fairness import false_positive_rate_parity, recall_parity, select_criterion
 from src.metrics.privacy import privacy_score
 from src.metrics.trust_index import trust_index
-from src.training.fairness_loss import clarity_penalty_from_outputs, recall_parity_penalty_torch
+from src.training.fairness_loss import clarity_penalty_from_outputs, fpr_parity_penalty_torch
 from src.utils.data_loader import load_adult_dataset, load_biometric_dataset, load_reiot_dataset
 from src.utils.preprocessing import preprocess_biometric, preprocess_reiot
 
@@ -204,8 +204,12 @@ def _resolve_variant_settings(variant):
 
 
 def _get_fairness_criterion(config):
+    explicit = str(config.get("fairness", {}).get("criterion", "")).strip().lower()
+    if explicit in {"recall_parity", "fprp", "fpr_parity"}:
+        return "fprp" if explicit in {"fprp", "fpr_parity"} else explicit
     context = "biometric"
-    if "reiot" in str(config.get("data", {}).get("name", "")).lower():
+    data_name = str(config.get("data", {}).get("name", "")).lower()
+    if any(tag in data_name for tag in ("reiot", "edge_iiot", "ton_iot", "iot")):
         context = "reiot"
     return select_criterion(context)
 
@@ -250,7 +254,9 @@ def _compute_group_weights(y_train, g_train_idx):
         key = (int(yi), int(gi))
         weights[i] = n / (n_cells * cells[key])
 
-    # Normalize to mean=1 for stable gradients
+    # Cap very large inverse-frequency weights to avoid fairness dominance,
+    # then re-normalize to mean=1 for stable gradients.
+    weights = np.clip(weights, a_min=None, a_max=3.0)
     weights /= weights.mean()
     return weights
 
@@ -282,11 +288,12 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
     # Support both lambda_rp and legacy lambda_fprp key names.
     lambda_rp_cfg = float(gov_cfg.get("lambda_rp") if "lambda_rp" in gov_cfg else gov_cfg.get("lambda_fprp", 0.0))
     lambda_c_cfg = float(gov_cfg.get("lambda_c", 0.0))
-    target_rp = float(thresholds.get("min_recall_parity", thresholds.get("min_fprp", 0.95)))
+    target_rp = float(thresholds.get("min_fprp", thresholds.get("min_recall_parity", 0.95)))
     target_clarity_conf = float(thresholds.get("min_clarity", 0.80))
 
     # Fairness is a gradient-optimized objective term.
     lambda_rp = lambda_rp_cfg if vset["use_fairness_loss"] else 0.0
+    base_lambda_rp = lambda_rp
     # Transparency is enforced structurally (e.g., pruning/constraints) and is NOT optimized via gradient descent.
     # In this implementation, lambda_c applies a structural surrogate regularizer.
     lambda_c = lambda_c_cfg if vset["use_clarity_loss"] else 0.0
@@ -340,7 +347,7 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
     _fairness_debug_logged = False
     t_train_start = time.perf_counter()
     for _epoch in range(epochs):
-        epoch_rp_values = []  # Track RP values across the epoch
+        epoch_fprp_values = []
         for batch_data in train_loader:
             # Unpack batch - now includes sample weights
             if len(batch_data) == 4:
@@ -395,13 +402,13 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
                 p_pos = probs[:, 1]
             else:
                 p_pos = probs[:, 0]
-            l_fair = recall_parity_penalty_torch(yb, p_pos, gb, rp_target=target_rp)
+            l_fair = fpr_parity_penalty_torch(yb, p_pos, gb, fpr_target=target_rp)
 
-            # Compute and track current RP value for epoch logging
+            # Compute and track current FPR parity value for epoch logging.
             if lambda_rp > 0:
                 with torch.no_grad():
                     unique_groups = torch.unique(gb)
-                    recalls = []
+                    group_fprs = {}
                     y_true_f = yb.float()
                     for g in unique_groups:
                         mask = (gb == g)
@@ -409,14 +416,19 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
                             continue
                         y_g = y_true_f[mask]
                         p_g = p_pos[mask]
-                        pos_mass = y_g.sum()
-                        if pos_mass <= 0:
+                        neg_mask = 1.0 - y_g
+                        neg_mass = neg_mask.sum()
+                        if neg_mass <= 0:
                             continue
-                        recall_soft = (p_g * y_g).sum() / (pos_mass + 1e-12)
-                        recalls.append(recall_soft.item())
-                    if len(recalls) >= 2:
-                        current_rp = min(recalls) / (max(recalls) + 1e-8)
-                        epoch_rp_values.append(current_rp)
+                        group_fprs[int(g.item())] = float(
+                            (p_g * neg_mask).sum().item() / (neg_mass.item() + 1e-12)
+                        )
+                    if len(group_fprs) >= 2:
+                        disparity = max(group_fprs.values()) - min(group_fprs.values())
+                        current_fprp = max(0.0, min(1.0, 1.0 - disparity))
+                        epoch_fprp_values.append(current_fprp)
+                        print("Per-group FPR:", group_fprs)
+                        print("FPR disparity:", disparity)
 
             if not _fairness_debug_logged and lambda_rp > 0:
                 print(f"Fairness loss: {l_fair.item():.6f} (lambda_rp={lambda_rp})")
@@ -425,6 +437,14 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
             # terms are applied.  L1 weight sparsity below is the only structural
             # transparency regularizer.
             l_clarity = clarity_penalty_from_outputs(probs, target_confidence=target_clarity_conf)
+
+            # Dynamically reduce fairness pressure if task accuracy drops too much.
+            batch_acc = float((logits.argmax(dim=1) == yb).float().mean().item())
+            accuracy_drop = 1.0 - batch_acc
+            if lambda_rp > 0 and accuracy_drop > 0.05:
+                lambda_rp = max(0.05, base_lambda_rp * 0.5)
+            else:
+                lambda_rp = base_lambda_rp
 
             gradient_objective = l_task + (lambda_rp * l_fair)
             structural_constraints = (lambda_c * l_clarity)
@@ -445,10 +465,9 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
             loss.backward()
             optimizer.step()
 
-        # Log per-epoch RP value
-        if lambda_rp > 0 and len(epoch_rp_values) > 0:
-            avg_rp = float(np.mean(epoch_rp_values))
-            print(f"Epoch {_epoch + 1}/{epochs} - RP: {avg_rp:.4f}")
+        if lambda_rp > 0 and len(epoch_fprp_values) > 0:
+            avg_fprp = float(np.mean(epoch_fprp_values))
+            print(f"Epoch {_epoch + 1}/{epochs} - FPR parity: {avg_fprp:.4f}")
 
     t_train_elapsed = time.perf_counter() - t_train_start
 
@@ -505,6 +524,24 @@ def _recall_parity_ratio(y_true, y_pred, groups):
     return float(min(recalls) / (max(recalls) + 1e-12))
 
 
+def _fpr_parity_score(y_true, y_pred, groups):
+    if groups is None:
+        return 1.0
+    fprs = []
+    groups_arr = np.array(groups).astype(str)
+    for g in sorted({str(v) for v in groups_arr}):
+        mask = (groups_arr == g)
+        yt = y_true[mask]
+        yp = y_pred[mask]
+        neg = (yt != 1)
+        if neg.sum() == 0:
+            continue
+        fprs.append(float(((yp == 1) & neg).sum() / max(neg.sum(), 1)))
+    if len(fprs) < 2:
+        return 1.0
+    return float(np.clip(1.0 - (max(fprs) - min(fprs)), 0.0, 1.0))
+
+
 def _fit_group_thresholds_equalized_odds(y_val, proba_val, groups_val):
     """Established fairness baseline: per-group threshold optimization."""
     if groups_val is None:
@@ -518,7 +555,7 @@ def _fit_group_thresholds_equalized_odds(y_val, proba_val, groups_val):
     for combo in itertools.product(threshold_grid, repeat=len(groups)):
         mapping = {g: float(t) for g, t in zip(groups, combo)}
         preds = _apply_group_thresholds(proba_val, groups_arr, mapping)
-        rp = _recall_parity_ratio(y_val, preds, groups_arr)
+        rp = _fpr_parity_score(y_val, preds, groups_arr)
         acc = float(np.mean(preds == y_val))
         # Balance fairness and utility for baseline comparability.
         score = 0.5 * rp + 0.5 * acc
@@ -526,6 +563,29 @@ def _fit_group_thresholds_equalized_odds(y_val, proba_val, groups_val):
             best_score = score
             best = mapping
     return best if best is not None else {"__all__": 0.5}
+
+
+def _fit_fpr_parity_threshold(y_val, proba_val, groups_val, default_threshold=0.5):
+    if groups_val is None:
+        return default_threshold
+    default_preds = (proba_val >= default_threshold).astype(int)
+    default_acc = float(np.mean(default_preds == y_val))
+    min_acc = max(0.0, default_acc - 0.02)
+
+    best_thr = default_threshold
+    best_score = -1e9
+    ref_group = sorted({str(g) for g in groups_val})[0]
+    for thr in np.linspace(0.1, 0.9, 33):
+        preds = (proba_val >= thr).astype(int)
+        acc = float(np.mean(preds == y_val))
+        if acc < min_acc:
+            continue
+        fair = false_positive_rate_parity(y_val, preds, groups_val, ref_group)
+        score = float(fair.get("fpr_parity", fair.get("fprp", 0.0)))
+        if score > best_score:
+            best_score = score
+            best_thr = float(thr)
+    return best_thr
 
 
 def _compute_all_metrics(model_adapter, X_train, y_train, X_val, y_val, groups_val,
@@ -544,11 +604,15 @@ def _compute_all_metrics(model_adapter, X_train, y_train, X_val, y_val, groups_v
     C = float(np.clip(clarity_result["clarity"], 0.0, 1.0))
 
     criterion = _get_fairness_criterion(config)
-    ref_group = "male_light" if criterion == "recall_parity" else "urban"
+    ref_group = "male_light"
+    if criterion == "fprp" and groups_test is not None:
+        ref_group = sorted({str(g) for g in groups_test})[0]
 
     if groups_test is not None and criterion == "fprp":
         fair_result = false_positive_rate_parity(y_test, y_pred_test, groups_test, ref_group)
-        Fv = float(fair_result.get("fprp", 0.0))
+        Fv = float(fair_result.get("fpr_parity", fair_result.get("fprp", 0.0)))
+        print("Per-group FPR:", fair_result.get("per_group_fpr", {}))
+        print("FPR disparity:", fair_result.get("fpr_disparity", 0.0))
     elif groups_test is not None and criterion == "recall_parity":
         fair_result = recall_parity(y_test, y_pred_test, groups_test, ref_group)
         Fv = float(fair_result.get("recall_parity", 0.0))
@@ -587,6 +651,7 @@ def _compute_all_metrics(model_adapter, X_train, y_train, X_val, y_val, groups_v
 
     return {
         "accuracy": acc,
+        "fpr_parity": Fv,
         "recall_parity": Fv,
         "clarity": C,
         "privacy": P,
@@ -675,6 +740,14 @@ def train_variant(variant, config, dataset, seed=42, output_dir=".", return_mode
         test_p1 = test_proba[:, 1] if test_proba.shape[1] > 1 else test_proba[:, 0]
         thresholds = _fit_group_thresholds_equalized_odds(y_val, val_p1, groups_val)
         y_pred_test_override = _apply_group_thresholds(test_p1, groups_test, thresholds)
+    elif vset["use_fairness_loss"] and _get_fairness_criterion(config) == "fprp":
+        val_proba = model_adapter.predict_proba(X_val)
+        test_proba = model_adapter.predict_proba(X_test)
+        val_p1 = val_proba[:, 1] if val_proba.shape[1] > 1 else val_proba[:, 0]
+        test_p1 = test_proba[:, 1] if test_proba.shape[1] > 1 else test_proba[:, 0]
+        threshold = _fit_fpr_parity_threshold(y_val, val_p1, groups_val)
+        print(f"Selected FPR-parity threshold: {threshold:.3f}")
+        y_pred_test_override = (test_p1 >= threshold).astype(int)
 
     if vset["use_accountability"]:
         logger = AuditLogger(

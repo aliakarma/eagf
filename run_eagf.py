@@ -306,7 +306,7 @@ def print_summary(output_dir):
     if not os.path.exists(ablation_csv):
         return
 
-    print(f"\n{'Model':<25} {'Acc':>7} {'RP':>7} {'C':>7} {'P':>7} {'A':>7} {'TI':>7}")
+    print(f"\n{'Model':<25} {'Acc':>7} {'FPRP':>7} {'C':>7} {'P':>7} {'A':>7} {'TI':>7}")
     print("-" * 68)
     import csv as _csv_mod
     with open(ablation_csv, newline='') as _f:
@@ -316,7 +316,7 @@ def print_summary(output_dir):
         try:
             print(f"{label:<25} "
                   f"{float(vals.get('accuracy_mean',0)):7.3f} "
-                  f"{float(vals.get('recall_parity_mean',0)):7.3f} "
+                  f"{float(vals.get('fpr_parity_mean', vals.get('recall_parity_mean',0))):7.3f} "
                   f"{float(vals.get('clarity_mean',0)):7.3f} "
                   f"{float(vals.get('privacy_mean',0)):7.3f} "
                   f"{float(vals.get('accountability_mean',0)):7.3f} "
@@ -396,8 +396,8 @@ def validate_and_print_final_results(
         vals = [r[key] for r in lst if key in r]
         return float(np.std(vals)) if len(vals) > 1 else 0.0
 
-    metrics = ["clarity", "recall_parity", "privacy", "accountability", "trust_index"]
-    labels  = ["Clarity (C)", "Fairness (RP)", "Privacy (P)", "Accountability (A)", "Trust Index"]
+    metrics = ["clarity", "fpr_parity", "privacy", "accountability", "trust_index"]
+    labels  = ["Clarity (C)", "Fairness (FPRP)", "Privacy (P)", "Accountability (A)", "Trust Index"]
 
     b_means = {m: _mean(baseline_results, m) for m in metrics}
     e_means = {m: _mean(eagf_results,     m) for m in metrics}

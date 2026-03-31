@@ -38,10 +38,10 @@ seeds: [42, 43, 44, 45, 46]        # 5 seeds for statistical robustness
 
 governance:
   dp_enabled: true
-  dp_epsilon: 2.0
+  dp_epsilon: 2.4
   dp_delta: 1.0e-5
   dp_max_grad_norm: 0.8
-  lambda_rp: 0.5                   # Recall-Parity / FPRP penalty weight
+  lambda_rp: 0.2                   # Recall-Parity / FPRP penalty weight
   lambda_c: 0.05                   # Clarity (L1 explanation sparsity) penalty
   shap_explainer: kernel
   shap_top_k: 5

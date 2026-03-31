@@ -36,7 +36,7 @@ ALL_SEEDS = [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
 FAST_SEEDS = [42]
 VARIANTS = ["baseline", "eagf", "joint_dp_fair"]
 REQUIRED_METRICS = [
-    "accuracy", "recall_parity", "clarity",
+    "accuracy", "fpr_parity", "clarity",
     "privacy", "accountability", "trust_index",
 ]
 CALIBRATION_METRICS = ["ece", "brier_score"]
@@ -486,7 +486,7 @@ def generate_final_report(output_dir, figures_dir, seeds, report_path):
 
     tradeoffs = [
         ("Accuracy drop",    "accuracy",      b["accuracy"],      e["accuracy"]),
-        ("Fairness change",  "recall_parity", b["recall_parity"], e["recall_parity"]),
+        ("Fairness change",  "fpr_parity", b["fpr_parity"], e["fpr_parity"]),
         ("Clarity change",   "clarity",       b["clarity"],       e["clarity"]),
         ("Privacy change",   "privacy",       b["privacy"],       e["privacy"]),
         ("TI improvement",   "trust_index",   b["trust_index"],   e["trust_index"]),
@@ -547,8 +547,8 @@ def generate_final_report(output_dir, figures_dir, seeds, report_path):
     acc_e = e.get("accuracy",  float("nan"))
     lat_b = b.get("inference_time_ms", float("nan"))
     lat_e = e.get("inference_time_ms", float("nan"))
-    rp_b  = b.get("recall_parity", float("nan"))
-    rp_e  = e.get("recall_parity", float("nan"))
+    rp_b  = b.get("fpr_parity", float("nan"))
+    rp_e  = e.get("fpr_parity", float("nan"))
     priv_b = b.get("privacy", float("nan"))
     priv_e = e.get("privacy", float("nan"))
 
@@ -671,7 +671,7 @@ def update_readme(output_dir, seeds):
         # Header row
         metrics_display = [
             ("accuracy_mean",      "Accuracy"),
-            ("recall_parity_mean", "Recall Parity"),
+            ("fpr_parity_mean", "FPR Parity"),
             ("clarity_mean",       "Clarity (C)"),
             ("privacy_mean",       "Privacy (P)"),
             ("accountability_mean","Accountability (A)"),

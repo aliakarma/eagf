@@ -244,8 +244,12 @@ def _train_joint(
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def _get_fairness_criterion(config: dict) -> str:
+    explicit = str(config.get("fairness", {}).get("criterion", "")).strip().lower()
+    if explicit in {"recall_parity", "fprp", "fpr_parity"}:
+        return "fprp" if explicit in {"fprp", "fpr_parity"} else explicit
     context = "biometric"
-    if "reiot" in str(config.get("data", {}).get("name", "")).lower():
+    data_name = str(config.get("data", {}).get("name", "")).lower()
+    if any(tag in data_name for tag in ("reiot", "edge_iiot", "ton_iot", "iot")):
         context = "reiot"
     return select_criterion(context)
 
@@ -364,12 +368,16 @@ def train_joint_dp_fair(
     C = float(np.clip(clarity_result["clarity"], 0.0, 1.0))
 
     criterion = _get_fairness_criterion(config)
-    ref_group = "male_light" if criterion == "recall_parity" else "urban"
+    ref_group = "male_light"
+    if criterion == "fprp" and groups_test is not None:
+        ref_group = sorted({str(g) for g in groups_test})[0]
 
     if groups_test is not None and criterion == "fprp":
         fair_result = false_positive_rate_parity(y_test, y_pred_test,
                                                   groups_test, ref_group)
-        Fv = float(fair_result.get("fprp", 0.0))
+        Fv = float(fair_result.get("fpr_parity", fair_result.get("fprp", 0.0)))
+        print("Per-group FPR:", fair_result.get("per_group_fpr", {}))
+        print("FPR disparity:", fair_result.get("fpr_disparity", 0.0))
     elif groups_test is not None and criterion == "recall_parity":
         fair_result = recall_parity(y_test, y_pred_test, groups_test, ref_group)
         Fv = float(fair_result.get("recall_parity", 0.0))
@@ -427,6 +435,7 @@ def train_joint_dp_fair(
 
     metrics: dict = {
         "accuracy": acc,
+        "fpr_parity": Fv,
         "recall_parity": Fv,
         "clarity": C,
         "privacy": P,

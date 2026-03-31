@@ -12,20 +12,30 @@ import torch
 
 def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
                                 rp_target=0.95):
-    """Differentiable recall-parity penalty on a batch.
+    """Backward-compatible alias to the FPR-parity training penalty."""
+    return fpr_parity_penalty_torch(
+        y_true=y_true,
+        y_pred_proba_pos=y_pred_proba_pos,
+        group_labels=group_labels,
+        fpr_target=rp_target,
+    )
+
+
+def fpr_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
+                             fpr_target=0.95):
+    """Differentiable FPR-parity penalty on a batch.
 
     Args:
         y_true: Tensor[int], shape (N,)
         y_pred_proba_pos: Tensor[float], shape (N,), probability of positive class.
         group_labels: Tensor[int], shape (N,)
-        rp_target: target recall-parity ratio min(recall_g)/max(recall_g).
+        fpr_target: target FPR-parity score.
 
     Returns:
-        Scalar torch tensor penalty = (target_rp - current_rp)^2.
-        Squared error provides stronger gradients for fairness optimization.
+        Scalar torch tensor penalty = (target_fprp - current_fprp)^2.
     """
     unique_groups = torch.unique(group_labels)
-    recalls = []
+    group_fprs = []
     y_true_f = y_true.float()
     for g in unique_groups:
         mask = (group_labels == g)
@@ -33,24 +43,21 @@ def recall_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
             continue
         y_g = y_true_f[mask]
         p_g = y_pred_proba_pos[mask]
-        # Soft recall proxy: E[p(y=1)] over true positives in group.
-        pos_mass = y_g.sum()
-        if pos_mass <= 0:
+        neg_mask = 1.0 - y_g
+        neg_mass = neg_mask.sum()
+        if neg_mass <= 0:
             continue
-        recall_soft = (p_g * y_g).sum() / (pos_mass + 1e-12)
-        recalls.append(recall_soft)
+        fpr_soft = (p_g * neg_mask).sum() / (neg_mass + 1e-12)
+        group_fprs.append(fpr_soft)
 
-    if len(recalls) < 2:
+    if len(group_fprs) < 2:
         return torch.zeros((), device=y_true.device)
 
-    recalls_t = torch.stack(recalls)
-    # Compute soft recall-parity ratio: min_recall / max_recall.
-    # Use squared error loss to provide stronger gradients for fairness optimization.
-    # The quadratic penalty increases pressure as deviation grows.
-    current_rp = recalls_t.min() / (recalls_t.max() + 1e-8)
-    target_t = torch.tensor(float(rp_target), device=y_true.device, dtype=current_rp.dtype)
-    # Use squared error loss for stronger fairness optimization
-    fairness_loss = (target_t - current_rp) ** 2
+    fprs_t = torch.stack(group_fprs)
+    disparity = fprs_t.max() - fprs_t.min()
+    current_fprp = torch.clamp(1.0 - disparity, min=0.0, max=1.0)
+    target_t = torch.tensor(float(fpr_target), device=y_true.device, dtype=current_fprp.dtype)
+    fairness_loss = (target_t - current_fprp) ** 2
     return fairness_loss
 
 
@@ -88,14 +95,14 @@ def clarity_penalty_from_outputs(y_pred_proba, target_confidence=0.80):
 
 def recall_parity_penalty(y_true, y_pred_proba, group_labels,
                            lambda_rp=0.1, rp_target=0.95, pos_label=1):
-    """Numpy compatibility wrapper used in analysis code paths."""
+    """Numpy compatibility wrapper for FPR-parity optimization."""
     y_true_t = torch.as_tensor(y_true, dtype=torch.long)
     group_t = torch.as_tensor(group_labels)
     if np.ndim(y_pred_proba) == 2:
         proba_pos_t = torch.as_tensor(y_pred_proba[:, int(pos_label)], dtype=torch.float32)
     else:
         proba_pos_t = torch.as_tensor(y_pred_proba, dtype=torch.float32)
-    penalty = recall_parity_penalty_torch(y_true_t, proba_pos_t, group_t, rp_target)
+    penalty = fpr_parity_penalty_torch(y_true_t, proba_pos_t, group_t, rp_target)
     return float(lambda_rp * penalty.detach().cpu().item())
 
 

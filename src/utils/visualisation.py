@@ -11,7 +11,7 @@ import matplotlib.ticker as mticker
 
 METRIC_LABELS = {
     "accuracy":      "Accuracy",
-    "recall_parity": "Recall Parity",
+    "fpr_parity":    "FPR Parity",
     "clarity":       "Clarity (C)",
     "privacy":       "Privacy (P)",
     "trust_index":   "Trust Index (TI)",
@@ -33,9 +33,9 @@ def _read_csv(path):
 def plot_ablation_bar(results_csv, output_path, figsize=(13, 5), dpi=200):
     """Reproduce Figure 3: Ablation bar chart."""
     rows, _ = _read_csv(results_csv)
-    metrics = ["accuracy_mean", "recall_parity_mean", "clarity_mean",
+    metrics = ["accuracy_mean", "fpr_parity_mean", "clarity_mean",
                "privacy_mean", "trust_index_mean"]
-    labels  = ["Accuracy", "Recall Parity", "Clarity (C)", "Privacy (P)", "Trust Index (TI)"]
+    labels  = ["Accuracy", "FPR Parity", "Clarity (C)", "Privacy (P)", "Trust Index (TI)"]
 
     # Find M0 and M5
     baseline = next((r for r in rows if r.get("model_id","").startswith("baseline")), None)
@@ -89,18 +89,18 @@ def plot_pareto_front(results_json, output_path, figsize=(7, 5), dpi=200):
     fig, ax = plt.subplots(figsize=figsize)
 
     dom_x  = [r.get("privacy", 0) for r in all_r if r not in front]
-    dom_y  = [r.get("recall_parity", 0) for r in all_r if r not in front]
+    dom_y  = [r.get("fpr_parity", r.get("recall_parity", 0)) for r in all_r if r not in front]
     ax.scatter(dom_x, dom_y, c="lightgrey", s=40, label="Dominated", zorder=2)
 
     par_x = [r.get("privacy", 0) for r in front]
-    par_y = [r.get("recall_parity", 0) for r in front]
+    par_y = [r.get("fpr_parity", r.get("recall_parity", 0)) for r in front]
     ax.scatter(par_x, par_y, c="#3CB371", s=80, label="Pareto-optimal", zorder=3)
 
-    ax.scatter(best.get("privacy", 0), best.get("recall_parity", 0),
+    ax.scatter(best.get("privacy", 0), best.get("fpr_parity", best.get("recall_parity", 0)),
                c="red", s=150, marker="*", label="Selected (max TI)", zorder=4)
 
     ax.set_xlabel("Privacy (P)", fontsize=11)
-    ax.set_ylabel("Recall Parity (RP)", fontsize=11)
+    ax.set_ylabel("FPR Parity", fontsize=11)
     ax.set_title("Pareto-Front: Privacy vs. Fairness Trade-off", fontsize=11)
     ax.legend(fontsize=9)
     ax.grid(alpha=0.2)

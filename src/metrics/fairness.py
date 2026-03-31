@@ -62,7 +62,7 @@ def recall_parity(y_true, y_pred, group_labels, reference_group,
 
 def false_positive_rate_parity(y_true, y_pred, group_labels,
                                 reference_group, pos_label=1) -> Dict:
-    """FPRP_{A/B} = FPR_A / FPR_B  [Eq. 6]"""
+    """FPR parity score: 1 - (max group FPR - min group FPR)."""
     groups = np.unique(group_labels)
     fprs = {}
     for g in groups:
@@ -73,8 +73,6 @@ def false_positive_rate_parity(y_true, y_pred, group_labels,
             fprs[str(g)] = _fpr(y_true[mask], y_pred[mask], pos_label)
 
     fprs = {k: float(v) for k, v in fprs.items() if not np.isnan(v)}
-    if len(fprs) < 2:
-        return {"fprp": 1.0, "fprp_pairs": {}, "per_group_fpr": fprs}
 
     ref_key = str(reference_group)
     ref_fpr = fprs.get(ref_key, 1e-12)
@@ -84,11 +82,20 @@ def false_positive_rate_parity(y_true, y_pred, group_labels,
             fprp_pairs[f"{g}/{ref_key}"] = f / (ref_fpr + 1e-12)
 
     vals = list(fprs.values())
-    # Generalised FPRP: min/max (closer to 1 = more equitable)
-    fprp_gen = min(vals) / (max(vals) + 1e-12) if max(vals) > 0 else 1.0
+    if len(vals) < 2:
+        disparity = 0.0
+        fprp_score = 1.0
+    else:
+        disparity = max(vals) - min(vals)
+        fprp_score = float(np.clip(1.0 - disparity, 0.0, 1.0))
 
-    return {"fprp": float(np.clip(fprp_gen, 0.0, 1.0)),
-            "fprp_pairs": fprp_pairs, "per_group_fpr": fprs}
+    return {
+        "fpr_parity": fprp_score,
+        "fprp": fprp_score,
+        "fpr_disparity": float(disparity),
+        "fprp_pairs": fprp_pairs,
+        "per_group_fpr": fprs,
+    }
 
 
 def select_criterion(deployment_context: str) -> str:
