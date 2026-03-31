@@ -180,7 +180,7 @@ eagf/
 
 ### Figure 3: Ablation Study — Pillar-by-Pillar Comparison
 <p align="center">
-  <img src="figures/ablation_comparison.png" alt="Ablation comparison of EAGF pillars" width="90%" />
+  <img src="figures/figure3.png" alt="Ablation comparison of EAGF pillars" width="90%" />
   <br><em>Impact of each governance pillar on Trust Index. Multi-pillar integration significantly outperforms single-pillar approaches.</em>
 </p>
 
