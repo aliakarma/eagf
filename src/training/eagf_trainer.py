@@ -229,6 +229,45 @@ def _build_train_loader(X_train, y_train, g_train, batch_size, seed):
     return DataLoader(ds, batch_size=min(batch_size, len(ds)), shuffle=True, generator=gen)
 
 
+def _compute_group_weights(y_train, g_train_idx):
+    """Compute per-sample weights inversely proportional to (group × class) frequency.
+
+    This upweights under-represented (group, class) combinations so that minority
+    groups receive stronger gradient contributions during training.
+    """
+    n = len(y_train)
+    weights = np.ones(n, dtype=np.float32)
+
+    # Count frequency of each (class, group) combination
+    cells = {}
+    for yi, gi in zip(y_train, g_train_idx):
+        key = (int(yi), int(gi))
+        cells[key] = cells.get(key, 0) + 1
+
+    n_cells = len(cells)
+    # Assign inverse frequency weight to each sample
+    for i, (yi, gi) in enumerate(zip(y_train, g_train_idx)):
+        key = (int(yi), int(gi))
+        weights[i] = n / (n_cells * cells[key])
+
+    # Normalize to mean=1 for stable gradients
+    weights /= weights.mean()
+    return weights
+
+
+def _build_train_loader_with_weights(X_train, y_train, g_train, sample_weights, batch_size, seed):
+    """Build training loader with per-sample weights for group reweighting."""
+    ds = TensorDataset(
+        torch.as_tensor(X_train, dtype=torch.float32),
+        torch.as_tensor(y_train, dtype=torch.long),
+        torch.as_tensor(g_train, dtype=torch.long),
+        torch.as_tensor(sample_weights, dtype=torch.float32),
+    )
+    gen = torch.Generator()
+    gen.manual_seed(seed)
+    return DataLoader(ds, batch_size=min(batch_size, len(ds)), shuffle=True, generator=gen)
+
+
 def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y_val, device, seed):
     training_cfg = config.get("training", {})
     gov_cfg = config.get("governance", {})
@@ -257,7 +296,13 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     g_train_idx = _encode_groups(groups_train, len(y_train))
-    train_loader = _build_train_loader(X_train, y_train, g_train_idx, batch_size, seed)
+
+    # ── PHASE 2: Group Reweighting ──────────────────────────────────────────
+    # Compute per-sample weights inversely proportional to (group × class) frequency
+    # to upweight minority groups and ensure fairness.
+    sample_weights = _compute_group_weights(y_train, g_train_idx)
+
+    train_loader = _build_train_loader_with_weights(X_train, y_train, g_train_idx, sample_weights, batch_size, seed)
 
     # Privacy optimization is applied through DP-SGD updates (Opacus), not by
     # adding a separate scalar privacy loss to the objective.
@@ -295,10 +340,22 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
     _fairness_debug_logged = False
     t_train_start = time.perf_counter()
     for _epoch in range(epochs):
-        for xb, yb, gb in train_loader:
-            xb = xb.to(device)
-            yb = yb.to(device)
-            gb = gb.to(device)
+        epoch_rp_values = []  # Track RP values across the epoch
+        for batch_data in train_loader:
+            # Unpack batch - now includes sample weights
+            if len(batch_data) == 4:
+                xb, yb, gb, wb = batch_data
+                xb = xb.to(device)
+                yb = yb.to(device)
+                gb = gb.to(device)
+                wb = wb.to(device)
+            else:
+                # Fallback for old loader without weights
+                xb, yb, gb = batch_data
+                xb = xb.to(device)
+                yb = yb.to(device)
+                gb = gb.to(device)
+                wb = torch.ones_like(yb, dtype=torch.float32, device=device)
 
             optimizer.zero_grad(set_to_none=True)
             t_fwd = time.perf_counter()
@@ -330,12 +387,37 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
             
             probs = torch.softmax(logits, dim=1)
 
-            l_task = F.cross_entropy(logits, yb)
+            # Apply group reweighting to loss (Phase 2)
+            l_task_per_sample = F.cross_entropy(logits, yb, reduction="none")
+            l_task = (l_task_per_sample * wb).mean()
+
             if probs.shape[1] >= 2:
                 p_pos = probs[:, 1]
             else:
                 p_pos = probs[:, 0]
             l_fair = recall_parity_penalty_torch(yb, p_pos, gb, rp_target=target_rp)
+
+            # Compute and track current RP value for epoch logging
+            if lambda_rp > 0:
+                with torch.no_grad():
+                    unique_groups = torch.unique(gb)
+                    recalls = []
+                    y_true_f = yb.float()
+                    for g in unique_groups:
+                        mask = (gb == g)
+                        if mask.sum() == 0:
+                            continue
+                        y_g = y_true_f[mask]
+                        p_g = p_pos[mask]
+                        pos_mass = y_g.sum()
+                        if pos_mass <= 0:
+                            continue
+                        recall_soft = (p_g * y_g).sum() / (pos_mass + 1e-12)
+                        recalls.append(recall_soft.item())
+                    if len(recalls) >= 2:
+                        current_rp = min(recalls) / (max(recalls) + 1e-8)
+                        epoch_rp_values.append(current_rp)
+
             if not _fairness_debug_logged and lambda_rp > 0:
                 print(f"Fairness loss: {l_fair.item():.6f} (lambda_rp={lambda_rp})")
                 _fairness_debug_logged = True
@@ -362,6 +444,11 @@ def _train_torch_model(variant, config, X_train, y_train, groups_train, X_val, y
             loss = gradient_objective + structural_constraints
             loss.backward()
             optimizer.step()
+
+        # Log per-epoch RP value
+        if lambda_rp > 0 and len(epoch_rp_values) > 0:
+            avg_rp = float(np.mean(epoch_rp_values))
+            print(f"Epoch {_epoch + 1}/{epochs} - RP: {avg_rp:.4f}")
 
     t_train_elapsed = time.perf_counter() - t_train_start
 
