@@ -7,7 +7,6 @@
   "accountability": 0.6666666666666666,
   "trust_index": 0.6117969919636408,
   "mia_auc": 0.5069490131578948,
-  "epsilon_eff": Infinity,
   "ece": 0.09617594677411893,
   "brier_score": 0.17914235552119753,
   "inference_time_ms": 0.0046,
