@@ -434,32 +434,6 @@ All experiments must satisfy:
 
 ---
 
-## 📝 Citation
-
-If you use EAGF in your research, please cite:
-
-```bibtex
-@software{eagf2026,
-  title={EAGF: Ethical AI Governance Framework for Cybersecurity in IoT Systems},
-  author={Akarma, Ali},
-  year={2026},
-  url={https://github.com/aliakarma/eagf},
-  doi={10.5281/zenodo.XXXXXXX}
-}
-```
-
-### Paper (Under Review)
-
-```bibtex
-@article{akarma2026eagf,
-  title={Ethical AI Governance for Cybersecurity in IoT: Joint Optimization of Fairness, Privacy, Clarity, and Accountability with Pareto Trade-off Analysis},
-  author={Akarma, Ali and others},
-  journal={IEEE Transactions on Software Engineering},
-  year={2026}
-}
-```
-
----
 
 ## 📜 License
 
@@ -490,7 +464,7 @@ For reproducibility help, issues, or questions:
 ## 📧 Contact
 
 - **Maintainer**: Ali Akarma
-- **Email**: [ali.akarma@example.com]
+- **Email**: [aliakarma974@gmail.com]
 - **Issues**: [GitHub Issues](https://github.com/aliakarma/eagf/issues)
 
 ---
