@@ -8,11 +8,6 @@
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red?style=flat-square)
 ![Reproducibility](https://img.shields.io/badge/Reproducibility-5_Seeds-success?style=flat-square)
 
-[![Open Demo in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/01_eagf_demo.ipynb)
-[![Open Statistical Analysis in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/02_statistical_analysis.ipynb)
-[![Open Fairness Study in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/03_reiot_fairness.ipynb)
-[![Open Pareto Analysis in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/04_pareto_front.ipynb)
-[![Open Sensitivity Analysis in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aliakarma/eagf/blob/main/notebooks/05_trust_index_sensitivity.ipynb)
 
 ---
 
@@ -461,12 +456,5 @@ For reproducibility help, issues, or questions:
 
 ---
 
-## 📧 Contact
-
-- **Maintainer**: Ali Akarma
-- **Email**: [aliakarma974@gmail.com]
-- **Issues**: [GitHub Issues](https://github.com/aliakarma/eagf/issues)
-
----
 
 **Last Updated**: March 2026 | Python 3.9+ | PyTorch 2.0+
