@@ -1,0 +1,6 @@
+case_study,variant,alpha_audit,alpha_trace,alpha_comply,accountability_score
+CS1,"M0, M1",0.90,0.00,0.00,0.300
+CS1,M2,1.00,1.00,0.95,0.983
+CS2,"M0, M1",0.00,0.00,0.00,0.000
+CS2,M0+Infra,0.90,0.00,0.00,0.300
+CS2,M2,1.00,0.60,0.40,0.667

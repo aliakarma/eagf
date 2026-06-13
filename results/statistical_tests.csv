@@ -1,0 +1,8 @@
+case_study,comparison,test,statistic,p_value,note
+CS1,M0 vs M2,Exact Wilcoxon signed-rank,,0.002,Floor at n=10; all 10 differences share one sign
+CS1,M1 vs M2,Exact Wilcoxon signed-rank,,0.002,Floor at n=10; all 10 differences share one sign
+CS1,M0 vs M1,Exact Wilcoxon signed-rank,,0.002,Floor at n=10; all 10 differences share one sign
+CS2,M0 vs M2,Paired t-test,t(4)=32.6,<0.001,
+CS2,M1 vs M2,Paired t-test,t(4)=18.4,<0.001,
+CS2,M0 vs M1,Paired t-test,t(4)=6.5,<0.01,
+CS2,All pairs,Exact Wilcoxon (descriptive),,0.063,Floor at n=5; all 5 differences share one sign

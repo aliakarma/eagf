@@ -1,0 +1,141 @@
+================================================================================
+          EAGF: Ethical AI Governance Framework — Final Experiment Report
+================================================================================
+
+Generated: June 2026
+Paper: "EAGF: A Four-Pillar Ethical AI Governance Framework for Trustworthy
+        Cybersecurity in 5G Renewable Energy IoT Systems"
+
+================================================================================
+CASE STUDY 1: Biometric Access Control (EFR)
+================================================================================
+
+Dataset:     EFR (10,021 images, 158 identity classes)
+Architecture: ResNet-50 (ImageNet-pretrained, GroupNorm for Opacus)
+Seeds:       10 (42-51)
+Fairness:    Recall Parity (RP)
+Privacy:     DP-SGD (epsilon_max=3, epsilon_eff=2.4, delta=1e-5)
+
+--- Ablation Results (Table 3) ---
+
+  ID   Variant                           Acc(%)          RP              C               P               A               TI (95% CI)
+  M0   Baseline (no governance)          84.63 +/- 1.03  0.786 +/- 0.021 0.929 +/- 0.028 0.243 +/- 0.009 0.300 +/- 0.000 0.565 +/- 0.007 [0.560, 0.569]
+  M1   Joint DP+Fairness                 76.46 +/- 3.13  0.908 +/- 0.018 0.952 +/- 0.016 0.288 +/- 0.013 0.300 +/- 0.000 0.612 +/- 0.009 [0.606, 0.618]
+  M2   EAGF (all pillars)                78.63 +/- 2.52  0.905 +/- 0.012 0.961 +/- 0.021 0.289 +/- 0.012 0.983 +/- 0.000 0.785 +/- 0.008 [0.780, 0.789]
+
+--- Main Comparison M0 vs M2 (Table 4) ---
+
+  Metric              M0 (Baseline)       M2 (EAGF)           Delta
+  Accuracy (%)        84.63 +/- 1.03      78.63 +/- 2.52      -6.00 pp
+  Recall Parity       0.786 +/- 0.021     0.905 +/- 0.012     +0.119 (+15.1%)
+  Clarity             0.929 +/- 0.028     0.961 +/- 0.021     +0.032 (+3.5%)
+  Privacy             0.243 +/- 0.009     0.289 +/- 0.012     +0.046 (+18.8%)
+  Accountability      0.300 +/- 0.000     0.983 +/- 0.000     +0.683
+  Trust Index         0.565 +/- 0.007     0.785 +/- 0.008     +0.220 (+38.97%)
+
+Statistical tests: Exact Wilcoxon signed-rank, p = 0.002 for all pairwise
+comparisons (floor at n=10; all 10 differences share one sign).
+
+Accountability contributes 77.6% of total TI gain.
+
+================================================================================
+CASE STUDY 2: IIoT Intrusion Detection (Edge-IIoTset)
+================================================================================
+
+Dataset:     Edge-IIoTset (157,800 flow records, binary, 1:5.8 imbalance)
+Architecture: 2-layer Bidirectional LSTM (hidden=128, LayerNorm head)
+Seeds:       5 (42-46)
+Fairness:    FPR Parity (FPRP), groups: protocol type (web, IoT-MQTT, misc)
+Privacy:     DP-SGD (epsilon_eff=2.4, delta=1e-5, grad clip=1.0)
+Accuracy:    Macro-averaged (unweighted mean of per-class recall)
+
+--- Ablation Results (Table 5) ---
+
+  ID       Variant                    Acc(macro)      FPRP            C               P               A               TI (95% CI)
+  M0       Baseline                   0.648 +/- 0.025 0.493 +/- 0.085 0.692 +/- 0.043 0.248 +/- 0.003 0.000 +/- 0.000 0.358 +/- 0.013 [0.348, 0.368]
+  M0+Infra Baseline + Audit Logging   0.648 +/- 0.025 0.493 +/- 0.085 0.692 +/- 0.043 0.248 +/- 0.003 0.300 +/- 0.000 0.433 +/- 0.013 [0.423, 0.443]
+  M1       Joint DP+Fairness          0.651 +/- 0.014 0.731 +/- 0.064 0.718 +/- 0.038 0.249 +/- 0.002 0.000 +/- 0.000 0.425 +/- 0.019 [0.412, 0.438]
+  M2       EAGF (Full)                0.665 +/- 0.008 0.771 +/- 0.057 0.739 +/- 0.055 0.248 +/- 0.003 0.667 +/- 0.000 0.606 +/- 0.011 [0.598, 0.614]
+
+--- Main Comparison M0 vs M2 (Table 6) ---
+
+  Metric              M0 (Baseline)       M2 (EAGF)           Delta           Rel. Improvement
+  Accuracy (macro)    0.648 +/- 0.025     0.665 +/- 0.008     +0.017          +2.6%
+  FPR Parity          0.493 +/- 0.085     0.771 +/- 0.057     +0.278          +56.4%
+  Clarity             0.692 +/- 0.043     0.739 +/- 0.055     +0.047          +6.8%
+  Privacy             0.248 +/- 0.003     0.248 +/- 0.003     +0.001          Preserved
+  Accountability      0.000 +/- 0.000     0.667 +/- 0.000     +0.667          Full coverage
+  Trust Index         0.358 +/- 0.013     0.606 +/- 0.011     +0.248          +69.3%
+  Latency (ms)        1.8                 2.0                 +0.2            +11%
+  Memory (MB)         --                  +5.8                +5.8            Edge-deployable
+
+Statistical tests:
+  M0 vs M2: Paired t-test, t(4) = 32.6, p < 0.001
+  M1 vs M2: Paired t-test, t(4) = 18.4, p < 0.001
+  M0 vs M1: Paired t-test, t(4) = 6.5,  p < 0.01
+  Exact Wilcoxon (descriptive): p = 0.063 for all pairs (floor at n=5)
+
+Accountability contributes 67.2% of total TI gain; ML governance contributes 32.8%.
+
+================================================================================
+MEMBERSHIP INFERENCE ATTACK (Table 7)
+================================================================================
+
+  Variant          CS1 AUC             CS2 AUC
+  M0 (no DP)       0.612 +/- 0.014     0.506 +/- 0.005
+  M1 (DP)          0.547 +/- 0.012     0.502 +/- 0.004
+  M2 (EAGF)        0.541 +/- 0.011     0.503 +/- 0.004
+
+CS1: DP reduces MIA AUC by 0.071 (from 0.612 to 0.541).
+CS2: Near-random (~0.50) even without DP — null empirical MIA effect in tabular domain.
+
+================================================================================
+LEAVE-ONE-OUT ABLATION (Table 8 — Edge-IIoTset)
+================================================================================
+
+  Configuration              Acc(macro)      FPRP            C               P               A       TI              Delta_TI
+  Full EAGF (M2)             0.665 +/- 0.008 0.771 +/- 0.057 0.739 +/- 0.055 0.248 +/- 0.003 0.667   0.606 +/- 0.011 --
+  - Fairness loss            0.668 +/- 0.009 0.548 +/- 0.079 0.736 +/- 0.051 0.248 +/- 0.003 0.667   0.550 +/- 0.016 -0.056
+  - Privacy (no DP)          0.671 +/- 0.007 0.783 +/- 0.052 0.741 +/- 0.049 0.205 +/- 0.004 0.667   0.599 +/- 0.012 -0.007
+  - Transparency control     0.664 +/- 0.009 0.768 +/- 0.055 0.709 +/- 0.041 0.248 +/- 0.003 0.667   0.598 +/- 0.011 -0.008
+  - Accountability infra     0.665 +/- 0.008 0.771 +/- 0.057 0.739 +/- 0.055 0.248 +/- 0.003 0.000   0.440 +/- 0.011 -0.166
+
+Every removal degrades TI. Removing accountability costs most (-0.166).
+
+================================================================================
+EXTERNAL BASELINE COMPARISON (Table 9 — Edge-IIoTset)
+================================================================================
+
+  Pipeline                       Acc(macro)      FPRP            C               P               A       TI
+  M0 (baseline)                  0.648 +/- 0.025 0.493 +/- 0.085 0.692 +/- 0.043 0.248 +/- 0.003 0.000   0.358 +/- 0.013
+  M0 + AIF360 reweighing         0.652 +/- 0.012 0.689 +/- 0.071 0.705 +/- 0.046 0.247 +/- 0.003 0.000   0.410 +/- 0.017
+  M0 + Fairlearn EG (FPR par.)   0.641 +/- 0.016 0.802 +/- 0.049 0.698 +/- 0.047 0.247 +/- 0.003 0.000   0.437 +/- 0.015
+  M1 (Joint DP+Fairness)         0.651 +/- 0.014 0.731 +/- 0.064 0.718 +/- 0.038 0.249 +/- 0.002 0.000   0.425 +/- 0.019
+  M2 (EAGF)                      0.665 +/- 0.008 0.771 +/- 0.057 0.739 +/- 0.055 0.248 +/- 0.003 0.667   0.606 +/- 0.011
+
+Fairlearn achieves best FPRP (0.802), but EAGF achieves best composite TI (0.606).
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+1. CS1: EAGF raises Trust Index by +38.97% (0.565 -> 0.785).
+   - Recall Parity improves +15.1% (0.786 -> 0.905).
+   - Accountability contributes 77.6% of TI gain.
+   - Accuracy cost: -6.00 pp (governance trade-off).
+
+2. CS2: EAGF raises Trust Index by +69.3% (0.358 -> 0.606).
+   - FPR Parity improves +56.4% (0.493 -> 0.771).
+   - Accuracy stable: +2.6% (macro-averaged).
+   - System overhead: +0.2 ms latency, +5.8 MB memory.
+
+3. Privacy: DP-SGD (eps=2.4) reduces MIA AUC from 0.612 to 0.541 in CS1.
+   Near-random in CS2 (null empirical MIA effect in tabular domain).
+
+4. No pillar is redundant: Leave-one-out confirms every mechanism degrades TI.
+   Removing accountability costs most (-0.166 TI).
+
+5. EAGF outperforms AIF360 (TI=0.410) and Fairlearn (TI=0.437) on composite
+   governance despite Fairlearn achieving higher single-pillar FPRP (0.802).
+
+================================================================================

@@ -32,7 +32,6 @@ data/reiot/test/
 # Keep committed: data/biometric/splits.json, data/README.md
 
 # ── Model checkpoints ─────────────────────────────────────
-results/
 !results/biometric/.gitkeep
 !results/reiot/.gitkeep
 *.pt

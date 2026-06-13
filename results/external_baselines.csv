@@ -1,0 +1,6 @@
+pipeline,accuracy_macro_mean,accuracy_macro_std,fprp_mean,fprp_std,clarity_mean,clarity_std,privacy_mean,privacy_std,accountability,trust_index_mean,trust_index_std
+M0 (baseline),0.648,0.025,0.493,0.085,0.692,0.043,0.248,0.003,0.000,0.358,0.013
+M0 + AIF360 reweighing,0.652,0.012,0.689,0.071,0.705,0.046,0.247,0.003,0.000,0.410,0.017
+M0 + Fairlearn EG (FPR parity),0.641,0.016,0.802,0.049,0.698,0.047,0.247,0.003,0.000,0.437,0.015
+M1 (Joint DP+Fairness),0.651,0.014,0.731,0.064,0.718,0.038,0.249,0.002,0.000,0.425,0.019
+M2 (EAGF),0.665,0.008,0.771,0.057,0.739,0.055,0.248,0.003,0.667,0.606,0.011

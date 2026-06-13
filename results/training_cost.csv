@@ -1,0 +1,8 @@
+quantity,cs1_efr,cs2_edge_iiotset
+Baseline (M0) per run,0.62 h,0.31 h
+EAGF per run,1.58 h (x2.5),0.74 h (x2.4)
+Pareto grid (25 runs),39.5 h,18.5 h
+Seed repetitions (selected cell),15.8 h (10 seeds),3.7 h (5 seeds)
+Total,~55 h,~22 h
+Median epochs to convergence,31,19
+Peak GPU memory,9.8 -> 21.4 GB,2.1 -> 5.6 GB

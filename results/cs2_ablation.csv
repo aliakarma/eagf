@@ -1,0 +1,5 @@
+model_id,model_label,accuracy_macro_mean,accuracy_macro_std,fpr_parity_mean,fpr_parity_std,clarity_mean,clarity_std,privacy_mean,privacy_std,accountability_mean,accountability_std,trust_index_mean,trust_index_std,trust_index_ci_lower,trust_index_ci_upper
+M0,Baseline,0.648,0.025,0.493,0.085,0.692,0.043,0.248,0.003,0.000,0.000,0.358,0.013,0.348,0.368
+M0+Infra,Baseline + Audit Logging,0.648,0.025,0.493,0.085,0.692,0.043,0.248,0.003,0.300,0.000,0.433,0.013,0.423,0.443
+M1,Joint DP+Fairness,0.651,0.014,0.731,0.064,0.718,0.038,0.249,0.002,0.000,0.000,0.425,0.019,0.412,0.438
+M2,EAGF (Full),0.665,0.008,0.771,0.057,0.739,0.055,0.248,0.003,0.667,0.000,0.606,0.011,0.598,0.614

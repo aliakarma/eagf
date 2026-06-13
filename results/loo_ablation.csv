@@ -1,0 +1,6 @@
+configuration,accuracy_macro_mean,accuracy_macro_std,fprp_mean,fprp_std,clarity_mean,clarity_std,privacy_mean,privacy_std,accountability,trust_index_mean,trust_index_std,delta_ti
+Full EAGF (M2),0.665,0.008,0.771,0.057,0.739,0.055,0.248,0.003,0.667,0.606,0.011,0.000
+- Fairness loss,0.668,0.009,0.548,0.079,0.736,0.051,0.248,0.003,0.667,0.550,0.016,-0.056
+- Privacy (no DP),0.671,0.007,0.783,0.052,0.741,0.049,0.205,0.004,0.667,0.599,0.012,-0.007
+- Transparency control,0.664,0.009,0.768,0.055,0.709,0.041,0.248,0.003,0.667,0.598,0.011,-0.008
+- Accountability infra,0.665,0.008,0.771,0.057,0.739,0.055,0.248,0.003,0.000,0.440,0.011,-0.166

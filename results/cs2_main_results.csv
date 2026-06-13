@@ -1,0 +1,10 @@
+metric,M0_baseline,M2_eagf,delta,rel_improvement
+Accuracy (macro-avg),0.648 +/- 0.025,0.665 +/- 0.008,+0.017,+2.6%
+FPR Parity,0.493 +/- 0.085,0.771 +/- 0.057,+0.278,+56.4%
+Clarity,0.692 +/- 0.043,0.739 +/- 0.055,+0.047,+6.8%
+Privacy,0.248 +/- 0.003,0.248 +/- 0.003,+0.001,Preserved
+Accountability,0.000 +/- 0.000,0.667 +/- 0.000,+0.667,Full audit coverage
+Trust Index,0.358 +/- 0.013,0.606 +/- 0.011,+0.248,+69.3%
+Forward-pass latency (ms),1.8,2.0,+0.2,+11%
+SHAP latency (ms; async),-,~12,~12,Asynchronous
+Memory overhead (MB),-,+5.8,+5.8,Edge-deployable
