@@ -1,14 +1,33 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "EAGF: Ethical AI Governance Framework"
-version: "v1.2.2"
-date-released: 2026-04-07
+title: "EAGF: A Four-Pillar Ethical AI Governance Framework for Trustworthy Cybersecurity in 5G Renewable Energy IoT Systems"
+version: "v1.3.1"
+date-released: 2026-06-13
 
 authors:
+  - family-names: "Jan"
+    given-names: "Salman"
+    email: "salman.jan@aou.org.bh"
+  - family-names: "Syed"
+    given-names: "Toqeer Ali"
+    email: "toqeer@iu.edu.sa"
   - family-names: "Akarma"
     given-names: "Ali"
     orcid: "https://orcid.org/0009-0002-6687-9380"
+  - family-names: "Muhammad"
+    given-names: "Munir Azam"
+  - family-names: "Kamal"
+    given-names: "Shahid"
+    email: "shahid.kamal@mmu.edu.my"
 
 repository-code: "https://github.com/aliakarma/eagf"
 url: "https://github.com/aliakarma/eagf"
 license: "MIT"
+keywords:
+  - trustworthy-ai
+  - ethical-ai-governance
+  - differential-privacy
+  - fairness
+  - explainability
+  - cybersecurity
+  - renewable-energy-iot
