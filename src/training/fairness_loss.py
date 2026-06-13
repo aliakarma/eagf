@@ -54,8 +54,7 @@ def fpr_parity_penalty_torch(y_true, y_pred_proba_pos, group_labels,
         return torch.zeros((), device=y_true.device)
 
     fprs_t = torch.stack(group_fprs)
-    disparity = fprs_t.max() - fprs_t.min()
-    current_fprp = torch.clamp(1.0 - disparity, min=0.0, max=1.0)
+    current_fprp = torch.clamp(fprs_t.min() / (fprs_t.max() + 1e-12), min=0.0, max=1.0)
     target_t = torch.tensor(float(fpr_target), device=y_true.device, dtype=current_fprp.dtype)
     fairness_loss = (target_t - current_fprp) ** 2
     return fairness_loss

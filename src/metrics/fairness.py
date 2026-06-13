@@ -87,7 +87,7 @@ def false_positive_rate_parity(y_true, y_pred, group_labels,
         fprp_score = 1.0
     else:
         disparity = max(vals) - min(vals)
-        fprp_score = float(np.clip(1.0 - disparity, 0.0, 1.0))
+        fprp_score = float(np.clip(min(vals) / (max(vals) + 1e-12), 0.0, 1.0))
 
     return {
         "fpr_parity": fprp_score,
