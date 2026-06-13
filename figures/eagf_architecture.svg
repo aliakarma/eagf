@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 420" font-family="Segoe UI, system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="none" stroke="#94a3b8" stroke-width="1.2"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="820" height="420" rx="12" fill="#f8f9fc"/>
+
+  <!-- Header bar -->
+  <rect x="20" y="16" width="780" height="52" rx="8" fill="#1a1a2e"/>
+  <text x="410" y="49" text-anchor="middle" fill="#ffffff" font-size="18" font-weight="600" letter-spacing="0.5">EAGF &#8212; Four-Pillar Ethical AI Governance Framework</text>
+
+  <!-- ===== PILLAR 1: Transparency ===== -->
+  <rect x="28" y="86" width="182" height="130" rx="8" fill="#ffffff" stroke="#d1d5e4"/>
+  <rect x="28" y="86" width="182" height="6" rx="8" ry="3" fill="#3b82f6"/>
+  <text x="119" y="116" text-anchor="middle" fill="#1e293b" font-size="14" font-weight="700">Transparency</text>
+  <text x="119" y="138" text-anchor="middle" fill="#64748b" font-size="11">SHAP Explainability</text>
+  <line x1="56" y1="152" x2="182" y2="152" stroke="#e2e8f0"/>
+  <text x="119" y="172" text-anchor="middle" fill="#475569" font-size="10.5">Fidelity / (1 + max(0,</text>
+  <text x="119" y="186" text-anchor="middle" fill="#475569" font-size="10.5">Size &#8722; k))</text>
+  <text x="119" y="206" text-anchor="middle" fill="#3b82f6" font-size="10" font-weight="600">clarity.py</text>
+
+  <!-- ===== PILLAR 2: Fairness ===== -->
+  <rect x="222" y="86" width="182" height="130" rx="8" fill="#ffffff" stroke="#d1d5e4"/>
+  <rect x="222" y="86" width="182" height="6" rx="8" ry="3" fill="#10b981"/>
+  <text x="313" y="116" text-anchor="middle" fill="#1e293b" font-size="14" font-weight="700">Fairness</text>
+  <text x="313" y="138" text-anchor="middle" fill="#64748b" font-size="11">RP (CS1) / FPRP (CS2)</text>
+  <line x1="250" y1="152" x2="376" y2="152" stroke="#e2e8f0"/>
+  <text x="313" y="172" text-anchor="middle" fill="#475569" font-size="10.5">min(rate) / max(rate)</text>
+  <text x="313" y="186" text-anchor="middle" fill="#475569" font-size="10.5">Ratio-based parity</text>
+  <text x="313" y="206" text-anchor="middle" fill="#10b981" font-size="10" font-weight="600">fairness.py</text>
+
+  <!-- ===== PILLAR 3: Privacy ===== -->
+  <rect x="416" y="86" width="182" height="130" rx="8" fill="#ffffff" stroke="#d1d5e4"/>
+  <rect x="416" y="86" width="182" height="6" rx="8" ry="3" fill="#f59e0b"/>
+  <text x="507" y="116" text-anchor="middle" fill="#1e293b" font-size="14" font-weight="700">Privacy</text>
+  <text x="507" y="138" text-anchor="middle" fill="#64748b" font-size="11">DP-SGD + MIA Resistance</text>
+  <line x1="444" y1="152" x2="570" y2="152" stroke="#e2e8f0"/>
+  <text x="507" y="172" text-anchor="middle" fill="#475569" font-size="10.5">&#946; e^(&#8722;&#949;) + (1&#8722;&#946;)(1&#8722;MIA)</text>
+  <text x="507" y="186" text-anchor="middle" fill="#475569" font-size="10.5">Yeom loss-threshold</text>
+  <text x="507" y="206" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="600">privacy.py</text>
+
+  <!-- ===== PILLAR 4: Accountability ===== -->
+  <rect x="610" y="86" width="182" height="130" rx="8" fill="#ffffff" stroke="#d1d5e4"/>
+  <rect x="610" y="86" width="182" height="6" rx="8" ry="3" fill="#8b5cf6"/>
+  <text x="701" y="116" text-anchor="middle" fill="#1e293b" font-size="14" font-weight="700">Accountability</text>
+  <text x="701" y="138" text-anchor="middle" fill="#64748b" font-size="11">Cryptographic Audit</text>
+  <line x1="638" y1="152" x2="764" y2="152" stroke="#e2e8f0"/>
+  <text x="701" y="172" text-anchor="middle" fill="#475569" font-size="10.5">RSA-SHA256 signed logs</text>
+  <text x="701" y="186" text-anchor="middle" fill="#475569" font-size="10.5">Compliance coverage</text>
+  <text x="701" y="206" text-anchor="middle" fill="#8b5cf6" font-size="10" font-weight="600">accountability.py</text>
+
+  <!-- Arrows: pillars -> TI bar -->
+  <path d="M119 216 L119 242" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <path d="M313 216 L313 242" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <path d="M507 216 L507 242" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <path d="M701 216 L701 242" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Trust Index aggregation bar -->
+  <rect x="28" y="246" width="764" height="56" rx="8" fill="#1e293b"/>
+  <text x="410" y="270" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="700">Trust Index (TI)</text>
+  <text x="410" y="290" text-anchor="middle" fill="#94a3b8" font-size="12">TI = 0.25 &#215; ( C + F + P + A )  &#8212;  Equal-weight aggregation</text>
+
+  <!-- Arrow: TI bar -> results -->
+  <path d="M410 302 L410 326" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Result card: CS1 -->
+  <rect x="28" y="330" width="375" height="72" rx="8" fill="#ffffff" stroke="#d1d5e4"/>
+  <rect x="28" y="330" width="5" height="72" rx="2" fill="#3b82f6"/>
+  <text x="50" y="354" fill="#1e293b" font-size="13" font-weight="700">CS1: Biometric (EFR)</text>
+  <text x="50" y="374" fill="#64748b" font-size="11">ResNet-50  |  10 seeds  |  Recall Parity</text>
+  <text x="50" y="394" fill="#10b981" font-size="13" font-weight="700">TI: 0.565 &#8594; 0.785  (+38.9%)</text>
+
+  <!-- Result card: CS2 -->
+  <rect x="417" y="330" width="375" height="72" rx="8" fill="#ffffff" stroke="#d1d5e4"/>
+  <rect x="417" y="330" width="5" height="72" rx="2" fill="#f59e0b"/>
+  <text x="439" y="354" fill="#1e293b" font-size="13" font-weight="700">CS2: IIoT (Edge-IIoTset)</text>
+  <text x="439" y="374" fill="#64748b" font-size="11">BiLSTM  |  5 seeds  |  FPR Parity</text>
+  <text x="439" y="394" fill="#10b981" font-size="13" font-weight="700">TI: 0.358 &#8594; 0.606  (+69.3%)</text>
+</svg>
