@@ -21,6 +21,14 @@ MODEL_LABELS = {
     "accountability": "M4: +Accountability only",
     "eagf":           "M5: EAGF (all pillars, joint)",
 }
+
+LOO_LABELS = {
+    "eagf":                   "Full EAGF (M2)",
+    "ablate_no_fairness":     "Remove fairness loss",
+    "ablate_no_dp":           "Remove privacy (no DP)",
+    "ablate_no_clarity":      "Remove transparency control",
+    "ablate_no_accountability": "Remove accountability infra",
+}
 METRICS = ["accuracy", "fpr_parity", "clarity", "privacy", "accountability", "trust_index"]
 
 
@@ -92,8 +100,10 @@ def run_full_ablation(config_path, seeds, output_dir, demo=True):
         config = yaml.safe_load(f)
 
     data_root = config.get("data", {}).get("root", "data/biometric")
+    architecture = config.get("model", {}).get("architecture", "tabular_mlp")
     dataset   = load_biometric_dataset(data_root=data_root, demo=demo,
-                                        n_samples=1500, seed=seeds[0])
+                                        n_samples=1500, seed=seeds[0],
+                                        architecture=architecture)
 
     models = list(MODEL_LABELS.keys())
     for model in models:
@@ -106,6 +116,56 @@ def run_full_ablation(config_path, seeds, output_dir, demo=True):
     summary_path = os.path.join(output_dir, "ablation_summary.csv")
     aggregate_ablation(output_dir, models, seeds, summary_path)
     return summary_path
+
+
+def run_leave_one_out_ablation(config, dataset, seeds, output_dir):
+    """Leave-one-out pillar ablation (Paper Table 16).
+
+    Trains full EAGF and each ablate_no_* variant, then reports
+    TI impact of removing each pillar: delta_TI = TI_full - TI_without.
+    """
+    from src.training.eagf_trainer import train_variant
+
+    variants = list(LOO_LABELS.keys())
+    all_results = {v: {m: [] for m in METRICS} for v in variants}
+
+    for variant in variants:
+        for seed in seeds:
+            variant_dir = os.path.join(output_dir, "loo", variant, f"seed_{seed}")
+            print(f"\n  [LOO {variant} | seed={seed}]")
+            result = train_variant(variant, config, dataset.copy(), seed=seed,
+                                    output_dir=variant_dir)
+            for m in METRICS:
+                all_results[variant][m].append(float(result.get(m, 0.0)))
+
+    rows = []
+    eagf_ti = np.array(all_results["eagf"]["trust_index"])
+    for variant in variants:
+        ti_vals = np.array(all_results[variant]["trust_index"])
+        delta_ti = float(np.mean(eagf_ti) - np.mean(ti_vals))
+        row = {
+            "variant": variant,
+            "label": LOO_LABELS[variant],
+            "trust_index_mean": round(float(np.mean(ti_vals)), 3),
+            "trust_index_std": round(float(np.std(ti_vals, ddof=1)), 3) if len(ti_vals) > 1 else 0.0,
+            "delta_ti": round(delta_ti, 3),
+        }
+        rows.append(row)
+
+    loo_path = os.path.join(output_dir, "loo_ablation_summary.csv")
+    os.makedirs(os.path.dirname(os.path.abspath(loo_path)), exist_ok=True)
+    if HAS_PANDAS:
+        import pandas as pd
+        pd.DataFrame(rows).to_csv(loo_path, index=False, float_format="%.4f")
+    else:
+        import csv as _csv
+        if rows:
+            with open(loo_path, "w", newline="") as f:
+                w = _csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+                w.writeheader()
+                w.writerows(rows)
+    print(f"Leave-one-out ablation -> {loo_path}")
+    return rows
 
 
 def parse_args():

@@ -46,8 +46,15 @@ def _load_dataset_from_config(config, seed=42, demo=False):
     return load_biometric_dataset(data_root=data_root, demo=demo, seed=seed)
 
 
-def run_baseline(config, seed=42, device="cpu", output_dir="results/baseline_dp", demo=False):
-    """Run baseline and return EAGF-compatible metrics."""
+def run_baseline(config, seed=42, device="cpu", output_dir="results/baseline_dp", demo=False,
+                  use_dp=False):
+    """Run AIF360-style reweighting baseline.
+
+    Args:
+        use_dp: If False (default), trains without DP-SGD (pure reweighting
+            for single-pillar fairness comparison as in paper Table 17).
+            If True, adds DP-SGD on top of reweighting.
+    """
     set_seed(seed)
     os.makedirs(output_dir, exist_ok=True)
 
@@ -83,13 +90,13 @@ def run_baseline(config, seed=42, device="cpu", output_dir="results/baseline_dp"
         X_train, y_train, groups_train, sample_weights, seed=seed
     )
 
-    # Use existing DP-SGD training pipeline by reusing the "privacy" variant.
+    train_variant_name = "privacy" if use_dp else "baseline"
     config = json.loads(json.dumps(config))
     config.setdefault("training", {})
     config["training"]["device"] = device
 
-    model, epsilon_eff = _train_torch_model(
-        variant="privacy",
+    model, epsilon_eff, _overhead = _train_torch_model(
+        variant=train_variant_name,
         config=config,
         X_train=X_train_rw,
         y_train=y_train_rw,

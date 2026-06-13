@@ -1,11 +1,17 @@
 """
-src/evaluation/mia_attack.py — Membership Inference Attack (Shadow Model)
+src/evaluation/mia_attack.py — Membership Inference Attack
 Paper: Section 3.4 (Privacy Metric, MIA stress-test)
+
+Primary: Yeom et al. loss-threshold attack (per-sample cross-entropy).
+Legacy: Shadow-model attack (retained for backward compatibility).
 """
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
+
+import torch
+import torch.nn.functional as F
 
 
 def _target_confidence(model, X):
@@ -70,5 +76,85 @@ def run_shadow_model_attack(model, X_train, y_train, X_test=None, y_test=None,
     except Exception:
         mia_auc = 0.5
         mia_acc = 0.5
+
+    return {"mia_auc": mia_auc, "mia_accuracy": mia_acc}
+
+
+def _per_sample_loss(model, X, y, device="cpu"):
+    """Compute per-sample cross-entropy loss."""
+    x_t = torch.as_tensor(X, dtype=torch.float32, device=device)
+    y_t = torch.as_tensor(y, dtype=torch.long, device=device)
+    with torch.no_grad():
+        if hasattr(model, "forward"):
+            logits = model(x_t)
+        elif hasattr(model, "model") and hasattr(model.model, "forward"):
+            logits = model.model(x_t)
+        else:
+            proba = model.predict_proba(X)
+            proba_t = torch.as_tensor(proba, dtype=torch.float32, device=device)
+            logits = torch.log(proba_t + 1e-12)
+        losses = F.cross_entropy(logits, y_t, reduction="none")
+    return losses.cpu().numpy()
+
+
+def run_yeom_mia(model, X_train, y_train, X_test=None, y_test=None,
+                  device="cpu", seed=42):
+    """Yeom et al. loss-threshold membership inference attack.
+
+    Classifies a sample as 'member' if its per-sample loss is below
+    the average training loss (threshold = mean training loss).
+
+    Args:
+        model: trained model (nn.Module or ModelAdapter with .model attribute).
+        X_train: training features (members).
+        y_train: training labels.
+        X_test: test features (non-members). If None, splits X_train.
+        y_test: test labels.
+        device: torch device string.
+        seed: random seed.
+
+    Returns:
+        dict with 'mia_auc', 'mia_accuracy'.
+    """
+    if X_test is None or y_test is None:
+        idx = np.arange(len(X_train))
+        tr_idx, te_idx = train_test_split(
+            idx, test_size=0.5, random_state=seed, stratify=y_train)
+        X_member, y_member = X_train[tr_idx], y_train[tr_idx]
+        X_non_member, y_non_member = X_train[te_idx], y_train[te_idx]
+    else:
+        X_member, y_member = X_train, y_train
+        X_non_member, y_non_member = X_test, y_test
+
+    torch_model = model.model if hasattr(model, "model") else model
+    if hasattr(torch_model, "eval"):
+        torch_model.eval()
+
+    try:
+        member_losses = _per_sample_loss(torch_model, X_member, y_member, device)
+        non_member_losses = _per_sample_loss(torch_model, X_non_member, y_non_member, device)
+    except Exception:
+        return {"mia_auc": 0.5, "mia_accuracy": 0.5}
+
+    threshold = float(np.mean(member_losses))
+
+    member_preds = (member_losses < threshold).astype(int)
+    non_member_preds = (non_member_losses < threshold).astype(int)
+
+    mia_acc = float(
+        (member_preds.sum() + (1 - non_member_preds).sum())
+        / (len(member_preds) + len(non_member_preds))
+    )
+
+    all_losses = np.concatenate([member_losses, non_member_losses])
+    all_labels = np.concatenate([
+        np.ones(len(member_losses)),
+        np.zeros(len(non_member_losses)),
+    ])
+
+    try:
+        mia_auc = float(roc_auc_score(all_labels, -all_losses))
+    except Exception:
+        mia_auc = 0.5
 
     return {"mia_auc": mia_auc, "mia_accuracy": mia_acc}

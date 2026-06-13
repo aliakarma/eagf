@@ -38,6 +38,7 @@ try:
     from fairlearn.reductions import (
         DemographicParity,
         EqualizedOdds,
+        FalsePositiveRateParity,
         ExponentiatedGradient,
     )
     _HAS_FAIRLEARN = True
@@ -118,8 +119,11 @@ def _build_constraint(criterion: str, n_classes: int):
     """Return the appropriate fairlearn constraint for the given criterion."""
     if criterion == "recall_parity" and n_classes == 2:
         return EqualizedOdds()
-    # For FPRP or multi-class settings, use DemographicParity as a
-    # well-supported proxy.
+    if criterion in ("fprp", "fpr_parity") and n_classes == 2:
+        try:
+            return FalsePositiveRateParity()
+        except Exception:
+            return EqualizedOdds()
     return DemographicParity()
 
 

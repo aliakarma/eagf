@@ -18,10 +18,10 @@ def two_proportion_ztest(acc_a, acc_b, n_a, n_b):
     return {"z": float(z), "p_value": float(p), "significant": bool(p < 0.05)}
 
 
-def wilcoxon_test(x, y=None, alternative="two-sided"):
-    """Wilcoxon signed-rank test.
-    Requires n >= 3 for meaningful results. Falls back to t-test for n=2,
-    and returns inconclusive for n=1.
+def wilcoxon_test(x, y=None, alternative="two-sided", method="auto"):
+    """Wilcoxon signed-rank test (exact method for small n).
+
+    For n=10 (CS1), exact Wilcoxon gives a minimum p of 0.002.
     """
     if y is None:
         y = np.zeros_like(x)
@@ -33,7 +33,6 @@ def wilcoxon_test(x, y=None, alternative="two-sided"):
                 "note": "Inconclusive: need >= 2 replicates for significance testing",
                 "significant": False}
     if n == 2:
-        # Fall back to paired t-test for n=2
         try:
             stat, p = stats.ttest_rel(x, y)
             return {"statistic": float(stat), "p_value": float(p),
@@ -41,11 +40,33 @@ def wilcoxon_test(x, y=None, alternative="two-sided"):
         except Exception as e:
             return {"statistic": 0.0, "p_value": 1.0, "error": str(e)}
     try:
-        stat, p = stats.wilcoxon(diffs, alternative=alternative)
+        wil_method = method if method != "auto" else ("exact" if n <= 25 else "approx")
+        stat, p = stats.wilcoxon(diffs, alternative=alternative, method=wil_method)
         return {"statistic": float(stat), "p_value": float(p),
+                "test": f"wilcoxon_{wil_method}", "n": n,
                 "significant": bool(p < 0.05)}
     except Exception as e:
-        return {"statistic": 0.0, "p_value": 1.0, "error": str(e)}
+        try:
+            stat, p = stats.wilcoxon(diffs, alternative=alternative)
+            return {"statistic": float(stat), "p_value": float(p),
+                    "significant": bool(p < 0.05)}
+        except Exception as e2:
+            return {"statistic": 0.0, "p_value": 1.0, "error": str(e2)}
+
+
+def paired_ttest(x, y):
+    """Paired t-test with degrees of freedom reporting (for CS2, n=5)."""
+    x, y = np.array(x), np.array(y)
+    n = len(x)
+    if n < 2:
+        return {"statistic": 0.0, "p_value": 1.0, "df": 0, "significant": False}
+    try:
+        stat, p = stats.ttest_rel(x, y)
+        return {"statistic": float(stat), "p_value": float(p),
+                "df": n - 1, "test": f"paired_ttest_t({n-1})",
+                "significant": bool(p < 0.05)}
+    except Exception as e:
+        return {"statistic": 0.0, "p_value": 1.0, "df": n - 1, "error": str(e)}
 
 
 def bootstrap_ci(values, n_resamples=1000, ci=0.95):
@@ -61,7 +82,8 @@ def bootstrap_ci(values, n_resamples=1000, ci=0.95):
     }
 
 
-def run_all_tests(baseline_dir, eagf_dir, seeds, output_path, n_test=1500):
+def run_all_tests(baseline_dir, eagf_dir, seeds, output_path, n_test=1500,
+                   case_study="cs2"):
     """Run all statistical tests comparing baseline vs EAGF."""
     METRICS = ["accuracy", "recall_parity", "clarity", "privacy",
                "accountability", "trust_index"]
@@ -98,26 +120,19 @@ def run_all_tests(baseline_dir, eagf_dir, seeds, output_path, n_test=1500):
             "n_replicates": len(e),
             "paired_seeds": paired_seeds,
         }
-        if m == "accuracy":
-            results[m]["ztest"] = two_proportion_ztest(
-                np.mean(e), np.mean(b), n_test, n_test)
-        elif m == "trust_index":
-            # Required non-parametric paired test on TI.
-            results[m]["wilcoxon_signed_rank"] = wilcoxon_test(e, b)
-        elif len(e) >= 5:
-            results[m]["wilcoxon"] = wilcoxon_test(e, b)
+        if case_study == "cs1":
+            # CS1 (n=10): exact Wilcoxon signed-rank
+            results[m]["wilcoxon"] = wilcoxon_test(e, b, method="exact")
+        elif case_study == "cs2":
+            # CS2 (n=5): paired t-test
+            results[m]["paired_ttest"] = paired_ttest(e, b)
         else:
-            # Paired t-test for small samples (n < 5)
-            from scipy.stats import ttest_rel
-            try:
-                stat, pval = ttest_rel(e, b)
-                results[m]["paired_ttest"] = {
-                    "statistic": float(stat), "p_value": float(pval),
-                    "significant": bool(pval < 0.05),
-                    "note": f"Paired t-test used (n={len(e)} < 5 for Wilcoxon)"
-                }
-            except Exception as ex:
-                results[m]["paired_ttest"] = {"p_value": 1.0, "error": str(ex)}
+            if len(e) >= 10:
+                results[m]["wilcoxon"] = wilcoxon_test(e, b, method="exact")
+            elif len(e) >= 5:
+                results[m]["paired_ttest"] = paired_ttest(e, b)
+            else:
+                results[m]["paired_ttest"] = paired_ttest(e, b)
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w") as f:
