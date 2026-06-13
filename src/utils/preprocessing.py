@@ -142,6 +142,8 @@ def preprocess_biometric(
     """Full preprocessing pipeline for biometric datasets.
 
     Applies: normalisation, optional DP noise, sample weight computation.
+    For image data (4D arrays), skips StandardScaler since images are
+    already ImageNet-normalized by the biometric pipeline.
 
     Args:
         dataset: Raw dataset dictionary from data_loader.
@@ -152,6 +154,14 @@ def preprocess_biometric(
     Returns:
         Preprocessed dataset with added 'sample_weights' key.
     """
+    if dataset.get("is_image_data"):
+        dataset["sample_weights"] = compute_sample_weights(
+            dataset["y_train"],
+            groups=dataset.get("groups_train"),
+            strategy="balanced_group",
+        )
+        return dataset
+
     X_train, X_val, X_test, scaler = normalise_features(
         dataset["X_train"], dataset.get("X_val"), dataset["X_test"]
     )

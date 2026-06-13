@@ -201,8 +201,8 @@ def run_pareto(config, dataset, seed, output_dir, fast_mode=False):
         lambda_c_vals = [0.1, 0.5]
         print(f"  Fast mode: Using reduced 2×2 Pareto grid (4 points)")
     else:
-        lambda_rp_vals = [0.01, 0.1, 0.5, 1.0]
-        lambda_c_vals = [0.01, 0.1, 0.5]
+        lambda_rp_vals = [0.001, 0.01, 0.1, 0.316, 1.0]
+        lambda_c_vals = [0.001, 0.01, 0.1, 0.316, 1.0]
     
     return run_pareto_search(
         config=config,
@@ -626,9 +626,12 @@ def main():
         from src.utils.data_loader import load_biometric_dataset
         demo = (args.data_root is None)
         data_root = args.data_root or "data/biometric/efr_processed"
-        print(f"  {'Demo synthetic' if demo else 'EFR'} dataset...")
+        architecture = config.get("model", {}).get("architecture", "tabular_mlp")
+        print(f"  {'Demo synthetic' if demo else 'EFR'} dataset "
+              f"(architecture={architecture})...")
         dataset = load_biometric_dataset(
             data_root=data_root, demo=demo, n_samples=1600, seed=args.seeds[0],
+            architecture=architecture,
         )
     print(f"  Train:{len(dataset['y_train'])} "
           f"Val:{len(dataset['y_val'])} Test:{len(dataset['y_test'])}")

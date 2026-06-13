@@ -146,7 +146,14 @@ def load_efr_dataset(data_root, splits_file=None, seed=42):
 
 
 def load_biometric_dataset(data_root="data/biometric/efr_processed",
-                            demo=False, n_samples=2000, seed=42):
+                            demo=False, n_samples=2000, seed=42,
+                            architecture="tabular_mlp"):
+    if architecture == "resnet50":
+        from src.utils.biometric_pipeline import load_biometric_image_dataset
+        n_img = min(n_samples, 400)
+        return load_biometric_image_dataset(
+            data_root=data_root, demo=demo, n_samples=n_img, seed=seed,
+        )
     if not demo:
         dataset = load_efr_dataset(data_root, seed=seed)
         if dataset is not None:

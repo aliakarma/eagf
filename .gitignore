@@ -85,3 +85,4 @@ coverage.xml
 notebooks/eagf/
 eagf/
 figures/notebook*.png
+docs/EAGF.tex
