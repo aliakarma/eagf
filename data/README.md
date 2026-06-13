@@ -80,64 +80,41 @@ data/biometric/
 
 ---
 
-## Case Study 2: RE-IoT Anomaly Detection (Synthetic Telemetry)
+## Case Study 2: IIoT Intrusion Detection (Edge-IIoTset)
 
-No external download is required. Synthetic 5G RE-IoT telemetry is generated
-locally using the EAGF simulation module, parameterised from published microgrid
-operational data (Liang et al., 2017, IEEE Trans. Smart Grid).
+### Source
 
-### Generation
+| Field | Value |
+|---|---|
+| Dataset name | Edge-IIoTset |
+| Source | IEEE Access 2022 (Ferrag et al.) |
+| URL | https://dx.doi.org/10.21203/rs.3.rs-1433551/v1 |
+| Size | ~78 MB (157,800 flow records) |
+| Features | 40 network flow + protocol-specific attributes |
+| Labels | Normal vs. Attack (binary, 1:5.8 imbalance) |
+| Protected groups | Protocol type (web, IoT-MQTT, misc) |
 
-```bash
-python -m src.utils.data_loader \
-    --dataset      reiot \
-    --output       data/reiot/ \
-    --nodes        120 \
-    --urban        40 \
-    --periurban    40 \
-    --rural        40 \
-    --attack-ratio 0.05 \
-    --attacks      fdia command_injection dos \
-    --frequency    1.0 \
-    --duration     86400 \
-    --seed         42
-```
+### Download Instructions
 
-### Node Profile Parameters (from Liang et al., 2017)
+1. Download `ML-EdgeIIoT-dataset.csv` from the URL above
+2. Place at `data/real_iot/edge_iiot.csv`
 
-| Node Class | Load Variation | Attack Base Rate | Count |
-|---|:---:|:---:|:---:|
-| Urban (grid-tied) | ±2% | 5% | 40 |
-| Peri-urban | ±8% | 5% | 40 |
-| Rural (off-grid) | ±22% | 5% | 40 |
-
-### Expected directory structure after generation
+### Expected directory structure
 
 ```
-data/reiot/
-├── train/                   ← 96 nodes (80%)
-│   ├── urban/
-│   ├── periurban/
-│   └── rural/
-├── test/                    ← 24 nodes (20%, stratified)
-│   ├── urban/
-│   ├── periurban/
-│   └── rural/
-├── telemetry_metadata.json  ← Node profiles and attack injection log
-└── generation_config.yaml   ← Full reproducibility record
+data/real_iot/
+└── edge_iiot.csv            ← 157,800 rows, ~78 MB
 ```
+
+The pipeline splits 70/15/15 (train/val/test) with stratification by label
+and protocol-type group. Splitting is deterministic per seed.
 
 ---
 
 ## Data Availability Statement
 
-In accordance with journal data availability policies:
-
 - The EFR biometric dataset is publicly available at the Kaggle URL above.
-- The synthetic RE-IoT telemetry is fully reproducible from the generation script
-  above with `--seed 42`. The generation script and all parameterisation details
-  are included in this repository.
-- Pre-processed split indices (`splits.json`) are committed to this repository
-  to guarantee identical train/val/test partitions across all experiments.
-- No personally identifiable information beyond the EFR dataset is used.
-  Smart-meter consumption data is synthetic only.
+- The Edge-IIoTset is publicly available from IEEE DataPort (Ferrag et al., 2022).
+- Pre-processed split indices are deterministic from the seed parameter.
+- No personally identifiable information is used. EFR face images are
+  used for identity classification only.
