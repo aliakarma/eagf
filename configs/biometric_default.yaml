@@ -16,14 +16,15 @@ data:
 
 # --- Model architecture ---------------------------------------
 model:
-  architecture: tabular_mlp
-  pretrained: false
+  architecture: resnet50
+  pretrained: true
+  dropout: 0.3
   num_classes: null                      # set automatically from dataset
 
 # --- Training -------------------------------------------------
 training:
   epochs: 50
-  batch_size: 64
+  batch_size: 32
   optimizer: adamw
   lr: 1.0e-4
   weight_decay: 1.0e-2

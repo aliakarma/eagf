@@ -17,21 +17,24 @@ data:
   max_rows: 150000
   data_dir: data/real_iot
   protected_group: protocol_type   # TCP/IP_layer column; fallback: device_type
-  split_ratios: [0.64, 0.16, 0.20] # train / val / test fractions
+  split_ratios: [0.70, 0.15, 0.15] # train / val / test fractions
   label_col: Attack_type
   binary_label: true               # normal (0) vs attack (1)
 
 model:
-  architecture: tabular_mlp
-  hidden_dims: [256, 128, 64]
+  architecture: lstm
+  hidden_size: 128
+  num_layers: 2
+  bidirectional: true
   dropout: 0.3
-  activation: relu
 
 training:
-  epochs: 20
-  batch_size: 128
+  epochs: 30
+  batch_size: 256
   lr: 1.0e-3
-  weight_decay: 1.0e-3
+  weight_decay: 1.0e-2
+  lr_scheduler: cosine
+  warmup_epochs: 3
   early_stopping_patience: 5
 
 seeds: [42, 43, 44, 45, 46]        # 5 seeds for statistical robustness
@@ -40,7 +43,7 @@ governance:
   dp_enabled: true
   dp_epsilon: 2.4
   dp_delta: 1.0e-5
-  dp_max_grad_norm: 0.8
+  dp_max_grad_norm: 1.0
   lambda_rp: 0.2                   # Recall-Parity / FPRP penalty weight
   lambda_c: 0.05                   # Clarity (L1 explanation sparsity) penalty
   shap_explainer: kernel
